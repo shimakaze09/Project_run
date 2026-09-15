@@ -5,15 +5,9 @@ using Run.Core;
 namespace Run.UI
 {
     /// <summary>
-    /// Builds and drives the on-screen HUD: live score, best score, and a centred
-    /// prompt for the Ready / Game Over states.
+    /// Builds and drives the on-screen HUD: live score, best score, coin count,
+    /// power-up timer, and a centred prompt for the Ready / Game Over states.
     /// </summary>
-    /// <remarks>
-    /// The canvas and its labels are constructed in code so the HUD is entirely
-    /// self-contained — dropping this one component into the scene is all that is
-    /// required. It listens to <see cref="GameManager"/> events rather than polling,
-    /// and unsubscribes on destroy to avoid dangling handlers across scene reloads.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class HudController : MonoBehaviour
     {
@@ -25,6 +19,7 @@ namespace Run.UI
         private Text _centerLabel;
         private Text _coinsLabel;
         private Text _coinPopup;
+        private Text _powerUpLabel; // Active power-up display
         private CanvasGroup _barGroup;
         private int _displayedCoins;
         private float _popupTime;
@@ -34,6 +29,11 @@ namespace Run.UI
         [SerializeField, Min(0.01f)] private float _coinPopupDuration = 0.7f;
         private RectTransform _progressFill;
         private GameManager _game;
+
+        // Power-Up State
+        private PowerUpType _activePowerUp = PowerUpType.None;
+        private float _powerUpTimeRemaining;
+        private bool _isPowerUpActive;
 
         private void Awake()
         {
@@ -58,6 +58,18 @@ namespace Run.UI
 
             OnScoreChanged(_game.Score);
             OnStateChanged(_game.State);
+        }
+
+        private void OnEnable()
+        {
+            PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired += OnPowerUpExpired;
+        }
+
+        private void OnDisable()
+        {
+            PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
         }
 
         private void OnDestroy()
@@ -112,7 +124,54 @@ namespace Run.UI
             }
         }
 
-        private void Update() => TickEffects(Time.unscaledDeltaTime);
+        private void OnPowerUpActivated(PowerUpType type, float duration)
+        {
+            _activePowerUp = type;
+            _powerUpTimeRemaining = duration;
+            _isPowerUpActive = true;
+
+            if (_powerUpLabel != null)
+            {
+                _powerUpLabel.enabled = true;
+                _powerUpLabel.text = $"{_activePowerUp.ToString().ToUpper()}  {_powerUpTimeRemaining:F1}s";
+            }
+        }
+
+        private void OnPowerUpExpired(PowerUpType type)
+        {
+            _isPowerUpActive = false;
+            _activePowerUp = PowerUpType.None;
+
+            if (_powerUpLabel != null)
+            {
+                _powerUpLabel.enabled = false;
+            }
+        }
+
+        private void Update()
+        {
+            TickEffects(Time.unscaledDeltaTime);
+            TickPowerUp(Time.deltaTime);
+        }
+
+        private void TickPowerUp(float deltaTime)
+        {
+            if (!_isPowerUpActive) return;
+
+            _powerUpTimeRemaining -= deltaTime;
+
+            if (_powerUpTimeRemaining > 0f)
+            {
+                if (_powerUpLabel != null)
+                {
+                    _powerUpLabel.text = $"{_activePowerUp.ToString().ToUpper()}  {_powerUpTimeRemaining:F1}s";
+                }
+            }
+            else
+            {
+                PowerUpEvents.TriggerExpired(_activePowerUp);
+            }
+        }
 
         private void TickEffects(float deltaTime)
         {
@@ -134,6 +193,7 @@ namespace Run.UI
                 _coinPopup.enabled = _popupTime > 0f;
             }
         }
+
         private void OnStateChanged(GameState state)
         {
             if (_centerLabel == null)
@@ -147,6 +207,7 @@ namespace Run.UI
                 case GameState.Ready:
                     _centerLabel.text = "TAP / SPACE TO START";
                     _centerLabel.enabled = true;
+                    OnPowerUpExpired(PowerUpType.None);
                     break;
 
                 case GameState.Playing:
@@ -156,6 +217,7 @@ namespace Run.UI
                 case GameState.GameOver:
                     _centerLabel.text = "GAME OVER\nTAP / SPACE TO RESTART";
                     _centerLabel.enabled = true;
+                    OnPowerUpExpired(PowerUpType.None);
                     break;
             }
         }
@@ -203,10 +265,18 @@ namespace Run.UI
             coinIcon.rectTransform.pivot = new Vector2(0f, 1f);
             coinIcon.rectTransform.anchoredPosition = new Vector2(30f, -121f);
             coinIcon.rectTransform.sizeDelta = new Vector2(20f, 20f);
+
             _coinPopup = CreateLabel(canvas.transform, "Coin Pickup",
                 anchor: new Vector2(0f, 1f), position: new Vector2(110f, -112f),
                 align: TextAnchor.UpperLeft, size: 26);
             _coinPopup.enabled = false;
+
+            // --- Power-Up HUD Indicator (Centered below progress bar) ---
+            _powerUpLabel = CreateLabel(canvas.transform, "PowerUp Label",
+                anchor: new Vector2(0.5f, 1f), position: new Vector2(0f, -120f),
+                align: TextAnchor.UpperCenter, size: 30);
+            _powerUpLabel.color = new Color(0.98f, 0.82f, 0.28f); // Golden yellow
+            _powerUpLabel.enabled = false;
 
             var background = new GameObject("Last Run Bar", typeof(Image), typeof(CanvasGroup)).GetComponent<Image>();
             _barGroup = background.GetComponent<CanvasGroup>();
@@ -220,6 +290,7 @@ namespace Run.UI
             barRect.pivot = new Vector2(0.5f, 1f);
             barRect.anchoredPosition = new Vector2(0f, -78f);
             barRect.sizeDelta = new Vector2(640f, 24f);
+
             var fill = new GameObject("Fill", typeof(Image)).GetComponent<Image>();
             fill.transform.SetParent(barRect, false);
             fill.color = new Color(0.43f, 0.94f, 0.78f);
@@ -228,6 +299,7 @@ namespace Run.UI
             _progressFill.anchorMin = Vector2.zero;
             _progressFill.anchorMax = new Vector2(0f, 1f);
             _progressFill.offsetMin = _progressFill.offsetMax = Vector2.zero;
+
             _centerLabel = CreateLabel(canvas.transform, "Center",
                 anchor: new Vector2(0.5f, 0.5f), position: Vector2.zero,
                 align: TextAnchor.MiddleCenter, size: Mathf.RoundToInt(_fontSize * 1.1f));
