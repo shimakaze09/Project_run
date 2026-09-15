@@ -35,6 +35,7 @@ namespace Run.EditorTools
             ConfigureCamera();
             ConfigurePlayer();
             EnsureSystems();
+            VisualArtSetup.Apply();
 
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             EditorSceneManager.MarkSceneDirty(scene);
@@ -123,7 +124,6 @@ namespace Run.EditorTools
             if (Object.FindFirstObjectByType<LevelGenerator>() == null)
             {
                 var generator = new GameObject("LevelGenerator");
-                generator.AddComponent<PieceFactory>();
                 generator.AddComponent<LevelGenerator>();
             }
 

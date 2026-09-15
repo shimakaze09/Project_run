@@ -1,8 +1,8 @@
 # Endless Runner (2D)
 
-A endless side-scroller built on Unity 6 (URP 2D). The world is generated
-procedurally, chunk by chunk, and streams forever as you run. All art is placeholder:
-every entity is a distinct runtime-generated **shape** so it reads at a glance.
+An endless side-scroller built on Unity 6 (URP 2D). Authored level prefabs stream
+chunk by chunk into a separate runtime scene as you run. All art is placeholder:
+editable layered sprite artwork keeps each entity readable at a glance.
 
 | Entity            | Shape          |
 |-------------------|----------------|
@@ -36,53 +36,74 @@ You die by touching a hazard, falling into a pit, or being left behind the camer
 > challenge honest. The player's `Visual` child and derived jump-reach are already in
 > place, so they can be layered back in later without reworking the core.
 
+## Sprint one: distance target and currency
+
+- The unlabeled HUD bar compares distance travelled to the **previous completed run**,
+  not the all-time best. 50 m of a previous 100 m run gives exactly 50% fill.
+- At 100%, the whole bar fades away over 0.6 seconds. The run continues: this is
+  an endless runner, so there is no finite finish-line completion sequence.
+- On the first run (or after a zero-distance run), the bar is hidden. There are
+  no first-run / last-run text labels.
+- The gold coin icon shows the saved total only. Picking up one coin adds one
+  currency unit and displays a small floating, fading **+1** beside the count.
+  Coins no longer add points to the distance score.
+- The wallet is saved on pickup under PlayerPrefs key `run.coins`. No store or
+  purchasing UI is implemented yet.
+- Final distance is saved on death under `run.lastRunDistance`; the current bar's
+  target stays fixed through Game Over. Restart loads the new target.
+- All-time distance score uses `run.bestDistanceScore`. The old mixed coin/distance
+  `run.bestScore` is deliberately not converted: its distance cannot be recovered.
+- Distance remains stable across floating-origin shifts.
+
 ## Architecture
 
-Scripts live under `Assets/Scripts`, namespaced `Run.*`. Systems are decoupled: they talk
-through `GameManager` events and locate each other by tag/singleton, so the scene needs
-almost no manual wiring.
+Scripts live under `Assets/Scripts`, namespaced `Run.*`.
 
-```
-Common/       Shapes (runtime sprite shapes), RunInput (input facade),
-              IWorldShiftable (floating-origin hook)
-Core/         GameManager (state machine, score, restart, events)
-Player/       PlayerController (run, jump, death)
-CameraRig/    CameraFollow (forward-scrolling smoothed follow)
-Generation/   LevelGenerator (the chunk algorithm + floating origin)
-              PieceFactory (builds + pools every shape)
-              Segment (one pooled chunk)
-Hazards/      Hazard (kill-on-contact), PatrolEnemy
-Collectibles/ Coin
-UI/           HudController (score, best, prompts — built in code)
-Editor/       RunnerSetup (the Build Scene menu item)
-```
+- `Core/GameManager`: run state, distance events, previous-run target, best distance,
+  separate saved currency, restart.
+- `UI/HudController`: distance/best labels, unlabeled fading bar, coin count/popup.
+- `Generation/LevelGenerator`: selects, loads and pools prefab chunks in the
+  **Runner Level** runtime scene. Reloading SampleScene unloads that scene too.
+- `Generation/LevelChunk`: prefab width, selection weights, safe-start flag,
+  jump requirements and pooled reset/shift behavior.
+- `Common/Shapes`: runtime player artwork. Prefab artwork is saved under
+  `Assets/Art`, so all level pieces also render in Prefab Mode.
+- `Generation/PieceFactory` and `Segment` remain legacy authoring helpers;
+  the runtime level loader no longer uses either.
+- `Editor/RunnerSetup`: builds/repairs the gameplay shell.
+- `Editor/SprintOneChecks`: repeatable deterministic acceptance checks.
 
-### Generation algorithm
+### Editing levels without code
 
-`LevelGenerator` keeps a `frontier` X. While the frontier is within `spawnAhead` of the
-camera's right edge it builds the next **segment** and advances the frontier by that
-segment's width; segments that scroll `despawnBehind` the camera are recycled to the pool.
+Open the prefabs under **Assets/Resources/Levels** in Prefab Mode. Eight starter
+layouts are included: SafeStart, Flat, Gap, Elevated, Staircase, Spikes, Enemy,
+and FloatingPlatforms. Move/resize their actual children (ground, hazards,
+coins and enemies), then save the prefab.
 
-Each segment is one of a weighted set of **patterns** (flat, gap, elevated, staircase,
-spikes, enemy, floating platforms). The weights shift with a `difficulty` value that ramps
-up with distance, so breathers thin out and hazards grow more common. Every pattern begins
-and ends on solid ground so chunks connect seamlessly, and every gap/step is clamped
-against the player's **current** jump reach (`MaxJumpSpan` / `MaxJumpHeight`) — so nothing
-unclearable is ever spawned, even as the run speed rises.
+The root `LevelChunk` Inspector sets Width, SafeStart, StartWeight, EndWeight,
+RequiredJumpSpan and RequiredJumpHeight. Layouts span local X=0 through Width
+and must start/end on ground at Y=0. Keep gaps, steps and reaction runways
+playable; the loader filters by declared jump requirements but does not resize
+hand-authored geometry. Test new layouts at both starting and maximum run speed.
 
-### Endless without drift (memory + precision)
+Duplicate a prefab for another layout; no switch statement or Build method is
+needed. The generator's prefab list can be assigned explicitly; an empty list
+loads all chunks from Resources/Levels. At least one positive-width SafeStart
+prefab is required. Weights change with distance, while the safe-start section
+remains hazard-free. Complete prefab instances are pooled, including reset coins
+and patrol enemies, and rebase together to avoid floating-point drift.
 
-Two things keep an unbounded run healthy:
+### Verification
 
-- **Memory** is bounded by **pooling**: chunks and pieces are recycled, so the live object
-  count stays flat no matter how far you run — distance never allocates.
-- **Float precision** is protected by a **floating origin**: once the player passes
-  `rebaseDistance`, the whole world (player, camera, every live piece, the generator's
-  anchors, and the score origin) is shifted back toward the origin by the same amount.
-  Nothing moves relative to anything else — the run is seamless — but world coordinates
-  stay small, so physics never loses precision on a marathon run. Components that cache an
-  absolute X (coin bob origin, enemy patrol bounds) implement `IWorldShiftable` to correct
-  themselves during a shift.
+Stop Play mode, then run **Tools > Endless Runner > Verify Sprint One**.
+The checks exercise 50% fill, full-bar fade timing, unlabeled HUD, coin popup
+timing/count, persistent currency, previous-run vs best distance, death,
+floating origin, saved prefab sprites, coin reuse and enemy patrol bounds.
+PlayerPrefs touched by these checks are restored in a finally block.
+
+Manual Play check: finish a run, restart, and watch the bar fill/fade at that
+distance; collect a coin to see the counter increase and +1 float away.
+Open and edit a level prefab, then Play again to see its saved layout.
 
 ### Scrolling, catch-up, and the camera
 
@@ -115,13 +136,31 @@ every piece in the world — no per-piece setup needed.
 
 ## Extending it
 
-- **New level pattern:** add a weight to the table in `LevelGenerator.ChoosePattern`, a
-  `case` in `BuildSegment`, and a `Build*` method that lays out pieces and returns the
-  chunk width. Use `MaxGap()` / `MaxStepUp()` to stay clearable.
-- **New obstacle/collectible:** add a `PieceKind`, a branch in `PieceFactory.Build`
-  (shape + colour + collider + component), and a `Spawn*` helper. Lethal things just need a
-  trigger collider and the `Hazard` component (or a subclass, like `PatrolEnemy`). If it
-  caches an absolute world X, implement `IWorldShiftable`.
-- **New shape:** add a `ShapeType` and its point-in-shape test in `Shapes.IsInside`.
-- **Tuning:** most feel lives in serialized fields on `PlayerController`, `LevelGenerator`,
-  `PieceFactory`, and `CameraFollow` — editable in the Inspector, no code changes needed.
+- **New level layout:** duplicate and edit a level prefab as described above.
+- **New collectible/hazard:** add its components to prefab children and reset any
+  cached state from LevelChunk when reusing it.
+- **Tuning:** serialized fields on PlayerController, LevelGenerator, LevelChunk,
+  HudController and CameraFollow are editable in the Inspector.
+
+## Twilight art and particle feedback
+
+- Editable twilight scenery prefab: **Assets/Resources/Scenery/Twilight.prefab**.
+  Moon, sky gradient, stars, mountain ridges and pine silhouettes form two parallax layers.
+- Every level piece has an **Artwork** child. Ground has moss edges and stone flecks;
+  coins are gold medallions; spikes are pink crystals; enemies are little visor drones.
+  The runner has a cyan suit, visor, scarf and boots, with visual-only squash/stretch.
+- Feedback covers running dust, jumping, landing, coin pickup, run start, death,
+  previous-run target completion, ambient coin sparkle, hazard embers and drifting motes.
+  The HUD keeps its unlabeled fading bar and simple coin count/+1 popup.
+- **GameFeel** on GameManager owns a shared 256-sprite pool. Bursts recycle that fixed
+  pool rather than spawning objects during gameplay. Intensity can be reduced to zero
+  in the Inspector. Ambient item effects are camera-culled and stop at Game Over.
+- Particle positions and parallax offsets respect floating-origin rebasing. Particle
+  simulation uses game time, so pausing stops it while Game Over lets bursts finish.
+- **Tools > Endless Runner > Apply Twilight Art** rebuilds the starter artwork and
+  saves the scene/prefabs. This replaces Artwork children; do not run it after custom
+  artwork edits unless you intend to restore the supplied look. It does not alter
+  the layout or colliders. Build Scene also applies this starter art.
+- **Tools > Endless Runner > Verify Visual Effects** checks every burst type, pool
+  bounds under 1,000 bursts, particle expiry/fade, pause, rebasing, intensity zero,
+  authored artwork, item sparkles and persistent scenery sprites.
