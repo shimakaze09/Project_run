@@ -5,7 +5,7 @@ using Run.Core;
 namespace Run.Collectibles
 {
     /// <summary>
-    /// A pick-up that awards bonus points and gently bobs in place for visual life.
+    /// A pick-up that awards saved currency and gently bobs in place for visual life.
     /// </summary>
     /// <remarks>
     /// Coins are pooled, so <see cref="Prime"/> is called by the generator after each
@@ -15,7 +15,7 @@ namespace Run.Collectibles
     [RequireComponent(typeof(Collider2D))]
     public sealed class Coin : MonoBehaviour, IWorldShiftable
     {
-        [SerializeField, Min(0)] private int _value = 5;
+        [SerializeField, Min(0)] private int _value = 1;
         [SerializeField, Min(0f)] private float _bobAmplitude = 0.12f;
         [SerializeField, Min(0f)] private float _bobFrequency = 2f;
 
@@ -36,6 +36,8 @@ namespace Run.Collectibles
             _phaseOffset = transform.position.x;   // desync the bob per coin
         }
 
+        public void RestoreBobOrigin() { transform.localPosition = _bobOrigin; }
+
         private void Update()
         {
             if (_collected)
@@ -49,13 +51,15 @@ namespace Run.Collectibles
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_collected || !other.CompareTag("Player"))
+            if (_collected || !other.CompareTag("Player") || GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing)
             {
                 return;
             }
 
             _collected = true;
-            GameManager.Instance?.AddBonus(_value);
+            GameManager.Instance.AddCoins(_value);
+            Run.Effects.GameFeel.Instance?.Emit(Run.Effects.BurstKind.Coin, transform.position);
             gameObject.SetActive(false);
         }
 

@@ -84,6 +84,9 @@ namespace Run.Player
 
         /// <summary>Approximate horizontal distance clearable in a single full jump.</summary>
         public float MaxJumpSpan { get; private set; }
+        public bool IsGrounded => _isGrounded;
+        public event System.Action Jumped;
+        public event System.Action Landed;
 
         private void Awake()
         {
@@ -211,6 +214,7 @@ namespace Run.Player
             _body.linearVelocity = new Vector2(_body.linearVelocity.x, _jumpVelocity);
             _coyoteCounter = 0f;
             _bufferCounter = 0f;
+            Jumped?.Invoke();
         }
 
         /// <summary>Extra forward speed applied while the player trails the scroll line.</summary>
@@ -234,9 +238,13 @@ namespace Run.Player
         /// <summary>Refreshes the grounded flag and coyote timer.</summary>
         private void UpdateGrounded()
         {
+            bool wasGrounded = _isGrounded;
             Bounds bounds = _collider.bounds;
             Vector2 feet = new Vector2(bounds.center.x, bounds.min.y - _groundCheckOffset);
             _isGrounded = Physics2D.OverlapBox(feet, _groundCheckSize, 0f, _groundLayers) != null;
+            if (!wasGrounded && _isGrounded && _body.linearVelocity.y <= 0f &&
+                GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
+                Landed?.Invoke();
 
             if (_isGrounded && _body.linearVelocity.y <= 0.01f)
             {

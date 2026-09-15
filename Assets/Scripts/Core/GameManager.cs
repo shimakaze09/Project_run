@@ -47,7 +47,7 @@ namespace Run.Core
         [SerializeField, Min(0f)] private float _pointsPerUnit = 1f;
 
         [Tooltip("PlayerPrefs key used to persist the best score across sessions.")]
-        [SerializeField] private string _bestScoreKey = "run.bestScore";
+        [SerializeField] private string _bestDistanceScoreKey = "run.bestDistanceScore";
 
         [Header("Restart")]
         [Tooltip("Minimum time on the Game Over screen before a restart press is accepted.")]
@@ -68,7 +68,16 @@ namespace Run.Core
         // never needs a hard reference to the player script.
         private Transform _distanceSource;
         private float _runStartX;
-        private int _bonusPoints;
+        private const string LastRunKey = "run.lastRunDistance";
+        private const string CoinsKey = "run.coins";
+        public float Distance { get; private set; }
+        // This target stays fixed until the next scene load, including the Game Over screen.
+        public float LastRunDistance { get; private set; }
+        public float LastRunProgress => LastRunDistance > 0f ? Mathf.Clamp01(Distance / LastRunDistance) : 0f;
+        public int Coins { get; private set; }
+        public int RunCoins { get; private set; }
+        public event Action<float> DistanceChanged;
+        public event Action<int> CoinsChanged;
         private float _gameOverTime;
         private bool _restartArmed;
 
@@ -81,7 +90,9 @@ namespace Run.Core
             }
 
             Instance = this;
-            BestScore = PlayerPrefs.GetInt(_bestScoreKey, 0);
+            BestScore = Mathf.Max(0, PlayerPrefs.GetInt(_bestDistanceScoreKey, 0));
+            LastRunDistance = Mathf.Max(0f, PlayerPrefs.GetFloat(LastRunKey, 0f));
+            Coins = Mathf.Max(0, PlayerPrefs.GetInt(CoinsKey, 0));
         }
 
         private void OnDestroy()
@@ -140,20 +151,25 @@ namespace Run.Core
             }
 
             _runStartX = _distanceSource != null ? _distanceSource.position.x : 0f;
-            _bonusPoints = 0;
+            Distance = 0f;
+            RunCoins = 0;
             SetState(GameState.Playing);
         }
 
-        /// <summary>Adds bonus points (e.g. from collected coins) during an active run.</summary>
-        public void AddBonus(int points)
+        /// <summary>Adds persistent currency without changing the distance score.</summary>
+        public void AddCoins(int amount)
         {
-            if (State != GameState.Playing || points <= 0)
+            if (State != GameState.Playing || amount <= 0)
             {
                 return;
             }
 
-            _bonusPoints += points;
-            RefreshScore();
+            int added = (int)Math.Min((long)amount, (long)int.MaxValue - Coins);
+            Coins += added;
+            RunCoins += added;
+            PlayerPrefs.SetInt(CoinsKey, Coins);
+            PlayerPrefs.Save();
+            CoinsChanged?.Invoke(Coins);
         }
 
         /// <summary>Ends the run, records the best score, and moves to <see cref="GameState.GameOver"/>.</summary>
@@ -164,6 +180,8 @@ namespace Run.Core
                 return;
             }
 
+            RefreshScore();
+            PlayerPrefs.SetFloat(LastRunKey, Distance);
             LastDeathCause = cause;
             _gameOverTime = Time.unscaledTime;
             _restartArmed = false;
@@ -171,10 +189,11 @@ namespace Run.Core
             if (Score > BestScore)
             {
                 BestScore = Score;
-                PlayerPrefs.SetInt(_bestScoreKey, BestScore);
+                PlayerPrefs.SetInt(_bestDistanceScoreKey, BestScore);
                 PlayerPrefs.Save();
             }
 
+            PlayerPrefs.Save();
             SetState(GameState.GameOver);
         }
 
@@ -193,8 +212,13 @@ namespace Run.Core
         private void RefreshScore()
         {
             float distance = _distanceSource != null ? _distanceSource.position.x - _runStartX : 0f;
-            int distancePoints = Mathf.Max(0, Mathf.FloorToInt(distance * _pointsPerUnit));
-            int total = _bonusPoints + distancePoints;
+            float nextDistance = Mathf.Max(Distance, Mathf.Max(0f, distance));
+            if (nextDistance != Distance)
+            {
+                Distance = nextDistance;
+                DistanceChanged?.Invoke(Distance);
+            }
+            int total = Mathf.Max(0, Mathf.FloorToInt(Distance * _pointsPerUnit));
 
             if (total != Score)
             {

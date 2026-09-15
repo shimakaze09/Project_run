@@ -19,6 +19,8 @@ namespace Run.Hazards
         [Header("Patrol")]
         [SerializeField, Min(0f)] private float _speed = 2.5f;
 
+        [SerializeField] private float _patrolMinLocalX;
+        [SerializeField] private float _patrolMaxLocalX;
         private float _minX;
         private float _maxX;
         private int _direction = -1;    // start heading left, toward the incoming player
@@ -27,6 +29,8 @@ namespace Run.Hazards
         /// <summary>Sets the patrol range (and optional speed) for this enemy instance.</summary>
         public void Configure(float minX, float maxX, float speed = -1f)
         {
+            _patrolMinLocalX = Mathf.Min(minX, maxX) - transform.position.x;
+            _patrolMaxLocalX = Mathf.Max(minX, maxX) - transform.position.x;
             _minX = Mathf.Min(minX, maxX);
             _maxX = Mathf.Max(minX, maxX);
             if (speed > 0f)
@@ -43,6 +47,14 @@ namespace Run.Hazards
         {
             _minX += dx;
             _maxX += dx;
+        }
+
+        public void ResetPatrol()
+        {
+            _minX = transform.position.x + _patrolMinLocalX;
+            _maxX = transform.position.x + _patrolMaxLocalX;
+            _direction = -1;
+            _configured = true;
         }
 
         private void Update()
