@@ -40,6 +40,12 @@ namespace Run.Generation
             var playerGo = GameObject.FindGameObjectWithTag("Player");
             _player = playerGo != null ? playerGo.GetComponent<PlayerController>() : null;
             _random = _useRandomSeed ? new System.Random() : new System.Random(_seed);
+
+            // The player's chosen challenge level shifts where the hazard ramp starts and
+            // how far it stretches, so Easy opens on gentler chunks and climbs slowly while
+            // Hard starts partway up the ramp and reaches full difficulty sooner.
+            _startDifficulty = DifficultySettings.StartDifficulty;
+            _difficultyRampDistance *= DifficultySettings.RampDistanceMultiplier;
             if (_levelPrefabs == null || _levelPrefabs.Length == 0)
                 _levelPrefabs = Resources.LoadAll<LevelChunk>("Levels");
             System.Array.Sort(_levelPrefabs, (a, b) => string.CompareOrdinal(a != null ? a.name : "", b != null ? b.name : ""));
