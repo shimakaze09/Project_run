@@ -1303,9 +1303,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Run.Player.PlayerController
   _autoRun: 1
-  _runSpeed: 7
-  _maxRunSpeed: 11
-  _runSpeedGainPerSecond: 0.06
+  _runSpeed: 10
+  _maxRunSpeed: 16
+  _runSpeedGainPerSecond: 0.15
   _jumpHeight: 3.2
   _timeToApex: 0.38
   _fallGravityMultiplier: 1.7
