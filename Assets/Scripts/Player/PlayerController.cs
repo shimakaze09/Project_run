@@ -1,6 +1,7 @@
 using UnityEngine;
 using Run.Common;
 using Run.Core;
+using Run.Effects;
 
 namespace Run.Player
 {
@@ -64,6 +65,10 @@ namespace Run.Player
         [Tooltip("Distance behind the camera's left edge at which being left behind is fatal.")]
         [SerializeField, Min(0f)] private float _killMarginBehind = 1.0f;
 
+        [Header("Power-Ups")]
+        [Tooltip("Run speed multiplier applied while a Speed Boost power-up is active.")]
+        [SerializeField, Min(1f)] private float _speedBoostMultiplier = 1.5f;
+
         private Rigidbody2D _body;
         private CapsuleCollider2D _collider;
         private Camera _camera;
@@ -77,9 +82,17 @@ namespace Run.Player
         private bool _isDead;
         private float _effectiveMaxRunSpeed;
         private float _effectiveRunSpeedGain;
+        private float _baseRunSpeed;
 
-        /// <summary>Current forward run speed (grows over the session up to the max).</summary>
-        public float RunSpeed { get; private set; }
+        // Power-up state. Kept as independent flags (rather than a single "active type") so
+        // Shield, Speed Boost, and Double Jump can be active at once if their windows overlap.
+        private bool _shieldActive;
+        private bool _speedBoostActive;
+        private bool _doubleJumpActive;
+        private bool _airJumpUsed;
+
+        /// <summary>Current forward run speed (grows over the session up to the max; boosted while Speed Boost is active).</summary>
+        public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f);
 
         /// <summary>Peak reachable jump height, in world units.</summary>
         public float MaxJumpHeight => _jumpHeight;
@@ -122,10 +135,60 @@ namespace Run.Player
             // ceiling by the same factor, so Easy/Hard shift the whole speed curve
             // rather than just its starting point.
             float speedMultiplier = DifficultySettings.SpeedMultiplier;
-            RunSpeed = _runSpeed * speedMultiplier;
+            _baseRunSpeed = _runSpeed * speedMultiplier;
             _effectiveMaxRunSpeed = _maxRunSpeed * speedMultiplier;
             _effectiveRunSpeedGain = _runSpeedGainPerSecond * DifficultySettings.SpeedGainMultiplier;
             RecomputeJumpSpan();
+        }
+
+        private void OnEnable()
+        {
+            PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired += OnPowerUpExpired;
+        }
+
+        private void OnDisable()
+        {
+            PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
+        }
+
+        private void OnPowerUpActivated(PowerUpType type, float duration)
+        {
+            switch (type)
+            {
+                case PowerUpType.Shield:
+                    _shieldActive = true;
+                    break;
+
+                case PowerUpType.SpeedBoost:
+                    _speedBoostActive = true;
+                    RecomputeJumpSpan();
+                    break;
+
+                case PowerUpType.DoubleJump:
+                    _doubleJumpActive = true;
+                    break;
+            }
+        }
+
+        private void OnPowerUpExpired(PowerUpType type)
+        {
+            switch (type)
+            {
+                case PowerUpType.Shield:
+                    _shieldActive = false;
+                    break;
+
+                case PowerUpType.SpeedBoost:
+                    _speedBoostActive = false;
+                    RecomputeJumpSpan();
+                    break;
+
+                case PowerUpType.DoubleJump:
+                    _doubleJumpActive = false;
+                    break;
+            }
         }
 
         private void Update()
@@ -163,9 +226,19 @@ namespace Run.Player
             }
 
             _bufferCounter = confirmPressed ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
-            if (_bufferCounter > 0f && _coyoteCounter > 0f)
+            if (_bufferCounter > 0f)
             {
-                Jump();
+                if (_coyoteCounter > 0f)
+                {
+                    Jump();
+                }
+                else if (_doubleJumpActive && !_airJumpUsed)
+                {
+                    // The extra jump is only available once per airborne stretch, regardless
+                    // of how long the Double Jump power-up's remaining duration is.
+                    _airJumpUsed = true;
+                    Jump();
+                }
             }
 
             CheckDeathBounds();
@@ -183,9 +256,9 @@ namespace Run.Player
 
             // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
             // generator's clamps stay in sync with how far the player can actually jump.
-            if (playing && _effectiveMaxRunSpeed > RunSpeed)
+            if (playing && _effectiveMaxRunSpeed > _baseRunSpeed)
             {
-                RunSpeed = Mathf.Min(_effectiveMaxRunSpeed, RunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
+                _baseRunSpeed = Mathf.Min(_effectiveMaxRunSpeed, _baseRunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
                 RecomputeJumpSpan();
             }
 
@@ -257,6 +330,7 @@ namespace Run.Player
             if (_isGrounded && _body.linearVelocity.y <= 0.01f)
             {
                 _coyoteCounter = _coyoteTime;
+                _airJumpUsed = false;
             }
             else
             {
@@ -308,6 +382,17 @@ namespace Run.Player
         {
             if (_isDead)
             {
+                return;
+            }
+
+            // Shield absorbs exactly one hazard hit (not a fall or being left behind, which
+            // are the player's own mistakes rather than something to block) and is consumed
+            // immediately, regardless of how much of its timer was left.
+            if (_shieldActive && cause == DeathCause.Hazard)
+            {
+                _shieldActive = false;
+                PowerUpEvents.TriggerExpired(PowerUpType.Shield);
+                GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
                 return;
             }
 
