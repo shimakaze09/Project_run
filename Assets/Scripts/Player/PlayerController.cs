@@ -24,10 +24,10 @@ namespace Run.Player
         [Header("Run")]
         [Tooltip("When true the capsule runs forward automatically (endless-runner style).")]
         [SerializeField] private bool _autoRun = true;
-        [SerializeField, Min(0f)] private float _runSpeed = 7f;
+        [SerializeField, Min(0f)] private float _runSpeed = 10f;
         [Tooltip("Speed the run ramps up to over the session. Set equal to Run Speed to disable ramping.")]
-        [SerializeField, Min(0f)] private float _maxRunSpeed = 11f;
-        [SerializeField, Min(0f)] private float _runSpeedGainPerSecond = 0.06f;
+        [SerializeField, Min(0f)] private float _maxRunSpeed = 16f;
+        [SerializeField, Min(0f)] private float _runSpeedGainPerSecond = 0.15f;
 
         [Header("Jump Feel")]
         [Tooltip("Peak height of a full jump, in world units.")]
