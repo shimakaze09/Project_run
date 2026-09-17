@@ -91,6 +91,25 @@ namespace Run.Common
             return false;
         }
 
+        /// <summary>True on the frame the pause toggle (Escape, or the Android back button) is pressed.</summary>
+        public static bool PausePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
         /// <summary>Horizontal steering in the range [-1, 1] (only used when auto-run is disabled).</summary>
         public static float Horizontal()
         {

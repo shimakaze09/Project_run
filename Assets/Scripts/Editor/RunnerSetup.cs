@@ -2,6 +2,10 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using Run.CameraRig;
 using Run.Common;
 using Run.Core;
@@ -131,6 +135,31 @@ namespace Run.EditorTools
             {
                 new GameObject("HUD").AddComponent<HudController>();
             }
+
+            if (Object.FindFirstObjectByType<PauseMenu>() == null)
+            {
+                new GameObject("Pause Menu").AddComponent<PauseMenu>();
+            }
+
+            EnsureEventSystem();
+        }
+
+        // UI buttons need an EventSystem in the scene to receive clicks; the project
+        // targets the new Input System only, so StandaloneInputModule (which reads the
+        // legacy Input Manager) would silently do nothing.
+        private static void EnsureEventSystem()
+        {
+            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            {
+                return;
+            }
+
+            var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
+#if ENABLE_INPUT_SYSTEM
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+#else
+            eventSystemObject.AddComponent<StandaloneInputModule>();
+#endif
         }
 
         private static T GetOrAdd<T>(GameObject target) where T : Component
