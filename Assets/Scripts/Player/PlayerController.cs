@@ -131,6 +131,18 @@ namespace Run.Player
             // a blocked player always slides down under full gravity instead of sticking.
             _collider.sharedMaterial = PhysicsMaterials.Frictionless;
 
+            ApplyDifficulty();
+        }
+
+        /// <summary>
+        /// Re-reads <see cref="DifficultySettings"/> and recomputes the speed values derived
+        /// from it. Called from <see cref="Awake"/> for a sane default, and again right as the
+        /// run starts, since the Ready-screen difficulty picker can change the selection at any
+        /// point up until that first press — a one-time read in <see cref="Awake"/> alone would
+        /// miss any choice made after the scene loaded.
+        /// </summary>
+        private void ApplyDifficulty()
+        {
             // The player's chosen challenge level scales both the base and the ramp
             // ceiling by the same factor, so Easy/Hard shift the whole speed curve
             // rather than just its starting point.
@@ -215,6 +227,7 @@ namespace Run.Player
                 }
                 if (_startArmed && confirmPressed)
                 {
+                    ApplyDifficulty();
                     game.BeginRun();
                 }
                 return;
