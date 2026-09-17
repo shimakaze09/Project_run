@@ -141,6 +141,11 @@ namespace Run.EditorTools
                 new GameObject("Pause Menu").AddComponent<PauseMenu>();
             }
 
+            if (Object.FindFirstObjectByType<DifficultyMenu>() == null)
+            {
+                new GameObject("Difficulty Menu").AddComponent<DifficultyMenu>();
+            }
+
             EnsureEventSystem();
         }
 

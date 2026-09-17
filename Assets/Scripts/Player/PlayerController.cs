@@ -75,6 +75,8 @@ namespace Run.Player
         private bool _isGrounded;
         private bool _startArmed;   // Ready-state gate: requires a fresh press to begin
         private bool _isDead;
+        private float _effectiveMaxRunSpeed;
+        private float _effectiveRunSpeedGain;
 
         /// <summary>Current forward run speed (grows over the session up to the max).</summary>
         public float RunSpeed { get; private set; }
@@ -116,7 +118,13 @@ namespace Run.Player
             // a blocked player always slides down under full gravity instead of sticking.
             _collider.sharedMaterial = PhysicsMaterials.Frictionless;
 
-            RunSpeed = _runSpeed;
+            // The player's chosen challenge level scales both the base and the ramp
+            // ceiling by the same factor, so Easy/Hard shift the whole speed curve
+            // rather than just its starting point.
+            float speedMultiplier = DifficultySettings.SpeedMultiplier;
+            RunSpeed = _runSpeed * speedMultiplier;
+            _effectiveMaxRunSpeed = _maxRunSpeed * speedMultiplier;
+            _effectiveRunSpeedGain = _runSpeedGainPerSecond * DifficultySettings.SpeedGainMultiplier;
             RecomputeJumpSpan();
         }
 
@@ -175,9 +183,9 @@ namespace Run.Player
 
             // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
             // generator's clamps stay in sync with how far the player can actually jump.
-            if (playing && _maxRunSpeed > _runSpeed)
+            if (playing && _effectiveMaxRunSpeed > RunSpeed)
             {
-                RunSpeed = Mathf.Min(_maxRunSpeed, RunSpeed + _runSpeedGainPerSecond * Time.fixedDeltaTime);
+                RunSpeed = Mathf.Min(_effectiveMaxRunSpeed, RunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
                 RecomputeJumpSpan();
             }
 
