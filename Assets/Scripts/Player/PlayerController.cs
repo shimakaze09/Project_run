@@ -18,7 +18,6 @@ namespace Run.Player
     /// </remarks>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(CapsuleCollider2D))]
-    [RequireComponent(typeof(PlayerHealth))]
     [DisallowMultipleComponent]
     public sealed class PlayerController : MonoBehaviour
     {
@@ -73,7 +72,6 @@ namespace Run.Player
         private Rigidbody2D _body;
         private CapsuleCollider2D _collider;
         private Camera _camera;
-        private PlayerHealth _health;
 
         private float _gravity;
         private float _jumpVelocity;
@@ -109,7 +107,6 @@ namespace Run.Player
         {
             _body = GetComponent<Rigidbody2D>();
             _collider = GetComponent<CapsuleCollider2D>();
-            _health = GetComponent<PlayerHealth>();
             _camera = Camera.main;
             EnsureVisual();
 
@@ -437,19 +434,6 @@ namespace Run.Player
                 GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
                 return;
             }
-             // Hazard and LeftBehind hits cost a heart instead of ending the run outright,
-            // as long as hearts remain. Falling into a pit is always instant, since it's
-           // considered a player mistake rather than something a heart should protect against.
-           bool hazardOrEdge = cause == DeathCause.Hazard || cause == DeathCause.LeftBehind;
-           if (hazardOrEdge && _health != null && !_health.IsDepleted){
-            
-            bool depleted = _health.TakeHit();
-            GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
-            if (!depleted)
-            {
-                return;
-            }
-           }
 
             _isDead = true;
             _body.linearVelocity = Vector2.zero;
