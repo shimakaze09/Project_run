@@ -2,6 +2,10 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using Run.CameraRig;
 using Run.Common;
 using Run.Core;
@@ -131,6 +135,49 @@ namespace Run.EditorTools
             {
                 new GameObject("HUD").AddComponent<HudController>();
             }
+
+            if (Object.FindFirstObjectByType<PauseMenu>() == null)
+            {
+                new GameObject("Pause Menu").AddComponent<PauseMenu>();
+            }
+
+            if (Object.FindFirstObjectByType<DifficultyMenu>() == null)
+            {
+                new GameObject("Difficulty Menu").AddComponent<DifficultyMenu>();
+            }
+
+            EnsureEventSystem();
+        }
+
+        // UI buttons need an EventSystem in the scene to receive clicks; the project
+        // targets the new Input System only, so StandaloneInputModule (which reads the
+        // legacy Input Manager) would silently do nothing.
+        private static void EnsureEventSystem()
+        {
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystemObject = eventSystem != null ? eventSystem.gameObject : new GameObject("EventSystem", typeof(EventSystem));
+
+#if ENABLE_INPUT_SYSTEM
+            var uiModule = eventSystemObject.GetComponent<InputSystemUIInputModule>();
+            if (uiModule == null)
+            {
+                uiModule = eventSystemObject.AddComponent<InputSystemUIInputModule>();
+            }
+
+            // Wires arrow keys/WASD to menu navigation and Enter to Submit, so the pause and
+            // difficulty menus are keyboard-navigable, not just clickable. Skipped once already
+            // configured (by this call or a manual Inspector setup) so re-running Build Scene
+            // never clobbers a hand-tuned actions asset.
+            if (uiModule.move.action == null || uiModule.move.action.bindings.Count == 0)
+            {
+                uiModule.AssignDefaultActions();
+            }
+#else
+            if (eventSystemObject.GetComponent<StandaloneInputModule>() == null)
+            {
+                eventSystemObject.AddComponent<StandaloneInputModule>();
+            }
+#endif
         }
 
         private static T GetOrAdd<T>(GameObject target) where T : Component

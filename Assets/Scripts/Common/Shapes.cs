@@ -85,13 +85,22 @@ namespace Run.Common
 
             texture.Apply();
 
+            // A 9-slice border on the rounded corners lets UI Images stretch this sprite
+            // to any non-square size (Image.Type.Sliced) without distorting the corner
+            // radius into an ellipse or aliasing it — the corners render at native pixel
+            // size and only the flat edges stretch.
+            Vector4 border = type == ShapeType.RoundedSquare
+                ? new Vector4(resolution * 0.3f, resolution * 0.3f, resolution * 0.3f, resolution * 0.3f)
+                : Vector4.zero;
+
             var sprite = Sprite.Create(
                 texture,
                 new Rect(0f, 0f, resolution, resolution),
                 new Vector2(0.5f, 0.5f),
                 resolution,                    // pixelsPerUnit → sprite is 1×1 world unit
                 0,
-                SpriteMeshType.FullRect);
+                SpriteMeshType.FullRect,
+                border);
             sprite.name = "Shape_" + type;
             sprite.hideFlags = HideFlags.HideAndDontSave;
             return sprite;

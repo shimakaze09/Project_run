@@ -1,6 +1,7 @@
 using UnityEngine;
 using Run.Common;
 using Run.Core;
+using Run.Effects;
 
 namespace Run.Player
 {
@@ -23,10 +24,10 @@ namespace Run.Player
         [Header("Run")]
         [Tooltip("When true the capsule runs forward automatically (endless-runner style).")]
         [SerializeField] private bool _autoRun = true;
-        [SerializeField, Min(0f)] private float _runSpeed = 7f;
+        [SerializeField, Min(0f)] private float _runSpeed = 10f;
         [Tooltip("Speed the run ramps up to over the session. Set equal to Run Speed to disable ramping.")]
-        [SerializeField, Min(0f)] private float _maxRunSpeed = 11f;
-        [SerializeField, Min(0f)] private float _runSpeedGainPerSecond = 0.06f;
+        [SerializeField, Min(0f)] private float _maxRunSpeed = 16f;
+        [SerializeField, Min(0f)] private float _runSpeedGainPerSecond = 0.15f;
 
         [Header("Jump Feel")]
         [Tooltip("Peak height of a full jump, in world units.")]
@@ -64,6 +65,10 @@ namespace Run.Player
         [Tooltip("Distance behind the camera's left edge at which being left behind is fatal.")]
         [SerializeField, Min(0f)] private float _killMarginBehind = 1.0f;
 
+        [Header("Power-Ups")]
+        [Tooltip("Run speed multiplier applied while a Speed Boost power-up is active.")]
+        [SerializeField, Min(1f)] private float _speedBoostMultiplier = 1.3f;
+
         private Rigidbody2D _body;
         private CapsuleCollider2D _collider;
         private Camera _camera;
@@ -75,9 +80,19 @@ namespace Run.Player
         private bool _isGrounded;
         private bool _startArmed;   // Ready-state gate: requires a fresh press to begin
         private bool _isDead;
+        private float _effectiveMaxRunSpeed;
+        private float _effectiveRunSpeedGain;
+        private float _baseRunSpeed;
 
-        /// <summary>Current forward run speed (grows over the session up to the max).</summary>
-        public float RunSpeed { get; private set; }
+        // Power-up state. Kept as independent flags (rather than a single "active type") so
+        // Shield, Speed Boost, and Double Jump can be active at once if their windows overlap.
+        private bool _shieldActive;
+        private bool _speedBoostActive;
+        private bool _doubleJumpActive;
+        private bool _airJumpUsed;
+
+        /// <summary>Current forward run speed (grows over the session up to the max; boosted while Speed Boost is active).</summary>
+        public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f);
 
         /// <summary>Peak reachable jump height, in world units.</summary>
         public float MaxJumpHeight => _jumpHeight;
@@ -116,8 +131,103 @@ namespace Run.Player
             // a blocked player always slides down under full gravity instead of sticking.
             _collider.sharedMaterial = PhysicsMaterials.Frictionless;
 
-            RunSpeed = _runSpeed;
+            ApplyDifficulty();
+        }
+
+        /// <summary>
+        /// Re-reads <see cref="DifficultySettings"/> and recomputes the speed values derived
+        /// from it. Called from <see cref="Awake"/> for a sane default, and again whenever the
+        /// run actually starts (see <see cref="OnGameStateChanged"/>), since the Ready-screen
+        /// difficulty picker can change the selection at any point up until then — a one-time
+        /// read in <see cref="Awake"/> alone would miss any choice made after the scene loaded.
+        /// </summary>
+        private void ApplyDifficulty()
+        {
+            // The player's chosen challenge level scales both the base and the ramp
+            // ceiling by the same factor, so Easy/Hard shift the whole speed curve
+            // rather than just its starting point.
+            float speedMultiplier = DifficultySettings.SpeedMultiplier;
+            _baseRunSpeed = _runSpeed * speedMultiplier;
+            _effectiveMaxRunSpeed = _maxRunSpeed * speedMultiplier;
+            _effectiveRunSpeedGain = _runSpeedGainPerSecond * DifficultySettings.SpeedGainMultiplier;
             RecomputeJumpSpan();
+        }
+
+        private void Start()
+        {
+            var game = GameManager.Instance;
+            if (game != null)
+            {
+                game.StateChanged += OnGameStateChanged;
+            }
+        }
+
+        private void OnEnable()
+        {
+            PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired += OnPowerUpExpired;
+        }
+
+        private void OnDisable()
+        {
+            PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
+            PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
+
+            var game = GameManager.Instance;
+            if (game != null)
+            {
+                game.StateChanged -= OnGameStateChanged;
+            }
+        }
+
+        private void OnGameStateChanged(GameState state)
+        {
+            // Re-read here rather than only at the moment PlayerController itself starts the
+            // run, since anything can start it - the Ready-screen confirm press, or the
+            // Difficulty Menu starting the run directly when its already-picked difficulty is
+            // re-confirmed. Both must pick up whatever's currently selected.
+            if (state == GameState.Playing)
+            {
+                ApplyDifficulty();
+            }
+        }
+
+        private void OnPowerUpActivated(PowerUpType type, float duration)
+        {
+            switch (type)
+            {
+                case PowerUpType.Shield:
+                    _shieldActive = true;
+                    break;
+
+                case PowerUpType.SpeedBoost:
+                    _speedBoostActive = true;
+                    RecomputeJumpSpan();
+                    break;
+
+                case PowerUpType.DoubleJump:
+                    _doubleJumpActive = true;
+                    break;
+            }
+        }
+
+        private void OnPowerUpExpired(PowerUpType type)
+        {
+            switch (type)
+            {
+                case PowerUpType.Shield:
+                    _shieldActive = false;
+                    break;
+
+                case PowerUpType.SpeedBoost:
+                    _speedBoostActive = false;
+                    RecomputeJumpSpan();
+                    break;
+
+                case PowerUpType.DoubleJump:
+                    _doubleJumpActive = false;
+                    break;
+            }
         }
 
         private void Update()
@@ -155,9 +265,19 @@ namespace Run.Player
             }
 
             _bufferCounter = confirmPressed ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
-            if (_bufferCounter > 0f && _coyoteCounter > 0f)
+            if (_bufferCounter > 0f)
             {
-                Jump();
+                if (_coyoteCounter > 0f)
+                {
+                    Jump();
+                }
+                else if (_doubleJumpActive && !_airJumpUsed)
+                {
+                    // The extra jump is only available once per airborne stretch, regardless
+                    // of how long the Double Jump power-up's remaining duration is.
+                    _airJumpUsed = true;
+                    Jump();
+                }
             }
 
             CheckDeathBounds();
@@ -175,9 +295,9 @@ namespace Run.Player
 
             // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
             // generator's clamps stay in sync with how far the player can actually jump.
-            if (playing && _maxRunSpeed > _runSpeed)
+            if (playing && _effectiveMaxRunSpeed > _baseRunSpeed)
             {
-                RunSpeed = Mathf.Min(_maxRunSpeed, RunSpeed + _runSpeedGainPerSecond * Time.fixedDeltaTime);
+                _baseRunSpeed = Mathf.Min(_effectiveMaxRunSpeed, _baseRunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
                 RecomputeJumpSpan();
             }
 
@@ -249,6 +369,7 @@ namespace Run.Player
             if (_isGrounded && _body.linearVelocity.y <= 0.01f)
             {
                 _coyoteCounter = _coyoteTime;
+                _airJumpUsed = false;
             }
             else
             {
@@ -300,6 +421,17 @@ namespace Run.Player
         {
             if (_isDead)
             {
+                return;
+            }
+
+            // Shield absorbs exactly one hazard hit (not a fall or being left behind, which
+            // are the player's own mistakes rather than something to block) and is consumed
+            // immediately, regardless of how much of its timer was left.
+            if (_shieldActive && cause == DeathCause.Hazard)
+            {
+                _shieldActive = false;
+                PowerUpEvents.TriggerExpired(PowerUpType.Shield);
+                GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
                 return;
             }
 

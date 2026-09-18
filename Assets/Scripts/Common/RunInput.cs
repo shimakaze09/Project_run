@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -20,6 +21,11 @@ namespace Run.Common
         /// <summary>True on the frame the confirm/jump action is first pressed.</summary>
         public static bool ConfirmPressed()
         {
+            if (IsUIFocused())
+            {
+                return false;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             var keyboard = Keyboard.current;
             if (keyboard != null &&
@@ -54,6 +60,20 @@ namespace Run.Common
             return false;
         }
 
+        /// <summary>
+        /// True when the pointer is over an interactive UI element, or a UI element (a menu
+        /// button navigated to with arrow keys, say) currently holds keyboard focus. Stops a
+        /// click or Enter press that resumes/restarts/quits — or picks a difficulty — from also
+        /// registering as a jump or run-start, since all of these read the same physical
+        /// mouse/keyboard press the UI event system just consumed.
+        /// </summary>
+        private static bool IsUIFocused()
+        {
+            var eventSystem = EventSystem.current;
+            return eventSystem != null &&
+                (eventSystem.IsPointerOverGameObject() || eventSystem.currentSelectedGameObject != null);
+        }
+
         /// <summary>True while the confirm/jump action is held (used for variable jump height).</summary>
         public static bool JumpHeld()
         {
@@ -84,6 +104,48 @@ namespace Run.Common
                 Input.GetKey(KeyCode.UpArrow) ||
                 Input.GetKey(KeyCode.W) ||
                 Input.GetMouseButton(0))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
+        /// <summary>
+        /// True on the frame the Enter key is first pressed. Menus call this directly and
+        /// invoke whatever's selected themselves, rather than trusting the EventSystem's own
+        /// Submit action end-to-end — one less link in the chain to go wrong.
+        /// </summary>
+        public static bool SubmitPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
+        /// <summary>True on the frame the pause toggle (Escape, or the Android back button) is pressed.</summary>
+        public static bool PausePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
                 return true;
             }
