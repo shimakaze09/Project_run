@@ -172,7 +172,12 @@ namespace Run.Player
         {
             PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
             PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
-            GameManager.Instance?.StateChanged -= OnGameStateChanged;
+
+            var game = GameManager.Instance;
+            if (game != null)
+            {
+                game.StateChanged -= OnGameStateChanged;
+            }
         }
 
         private void OnGameStateChanged(GameState state)
