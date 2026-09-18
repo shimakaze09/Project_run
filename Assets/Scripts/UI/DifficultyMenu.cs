@@ -26,6 +26,9 @@ namespace Run.UI
         private static readonly Color Panel = new Color(0.06f, 0.11f, 0.17f, 0.85f);
         private static readonly Color ButtonBg = new Color(0.1f, 0.15f, 0.23f, 1f);
         private static readonly Color ButtonIdle = new Color(ButtonBg.r, ButtonBg.g, ButtonBg.b, 0f);
+        // ButtonBg alone reads as almost the same shade as the panel behind it - too subtle to
+        // notice as a hover/focus cue - so lighten it further for a highlight that's unmissable.
+        private static readonly Color ButtonHighlight = Color.Lerp(ButtonBg, Color.white, 0.4f);
         private static readonly Color Mint = new Color(0.43f, 0.94f, 0.78f);
 
         private static readonly Difficulty[] Options = { Difficulty.Easy, Difficulty.Normal, Difficulty.Hard };
@@ -103,8 +106,17 @@ namespace Run.UI
 
         private void Choose(Difficulty difficulty)
         {
+            // Choosing the difficulty that's already active doesn't change anything for
+            // DifficultySettings.Set to react to, so treat it as "I'm happy with this, go" and
+            // start the run directly rather than requiring a separate press elsewhere.
+            bool alreadyChosen = DifficultySettings.Current == difficulty;
             DifficultySettings.Set(difficulty);
             RefreshSelection();
+
+            if (alreadyChosen)
+            {
+                _game?.BeginRun();
+            }
         }
 
         private void SetHovered(int index, bool hovered)
@@ -142,7 +154,7 @@ namespace Run.UI
                 bool highlighted = i == _hoveredIndex || i == _focusedIndex;
                 _buttons[i].color = Options[i] == DifficultySettings.Current
                     ? Mint
-                    : highlighted ? ButtonBg : ButtonIdle;
+                    : highlighted ? ButtonHighlight : ButtonIdle;
             }
         }
 
