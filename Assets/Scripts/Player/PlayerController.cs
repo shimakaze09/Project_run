@@ -74,6 +74,8 @@ namespace Run.Player
         private CapsuleCollider2D _collider;
         private Camera _camera;
         private PlayerHealth _health;
+        private SpriteRenderer _visualRenderer;
+        private SpriteRenderer[] _bodyRenderers;
 
         private float _gravity;
         private float _jumpVelocity;
@@ -112,6 +114,7 @@ namespace Run.Player
             _health = GetComponent<PlayerHealth>();
             _camera = Camera.main;
             EnsureVisual();
+            _bodyRenderers = GetComponentsInChildren<SpriteRenderer>();
 
             if (_groundLayers.value == 0)
             {
@@ -444,6 +447,7 @@ namespace Run.Player
             bool hazardOrEdge = cause == DeathCause.Hazard || cause == DeathCause.LeftBehind;
             if (hazardOrEdge && _health != null && !_health.IsDepleted){
                 bool depleted = _health.TakeHit();
+                StartCoroutine(FlashDamage());
                 GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
                 if (!depleted){
                     return;
@@ -455,6 +459,38 @@ namespace Run.Player
             _body.simulated = false;   // freeze in place; physics no longer applies
             GameManager.Instance?.NotifyPlayerDied(cause);
         }
+
+        /// <summary>Briefly flashes the player's sprite pieces to signal a hazard hit.</summary>
+        private System.Collections.IEnumerator FlashDamage()
+        {
+        if (_bodyRenderers == null || _bodyRenderers.Length == 0){
+        
+        yield break;
+        }
+
+
+
+        Color[] originals = new Color[_bodyRenderers.Length];
+        for (int i = 0; i < _bodyRenderers.Length; i++){
+        originals[i] = _bodyRenderers[i].color;
+        }
+
+        for (int repeat = 0; repeat < 3; repeat++){
+        
+           for (int i = 0; i < _bodyRenderers.Length; i++)
+           {
+            _bodyRenderers[i].color = Color.red;
+           }
+           yield return new WaitForSeconds(0.08f);
+           for (int i = 0; i < _bodyRenderers.Length; i++)
+           {
+            _bodyRenderers[i].color = originals[i];
+           }
+           yield return new WaitForSeconds(0.08f);
+           }
+        }
+
+    
 
         /// <summary>
         /// Ensures the sprite lives on a child "Visual" (kept separate from the physics
@@ -478,7 +514,9 @@ namespace Run.Player
             if (renderer.sprite == null)
             {
                 renderer.sprite = Shapes.Capsule;
+                
             }
+            _visualRenderer = renderer;
         }
 
         private void RecomputeJumpSpan()
@@ -506,4 +544,7 @@ namespace Run.Player
         }
 #endif
     }
+
+
+    
 }
