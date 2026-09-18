@@ -22,6 +22,7 @@ namespace Run.UI
         private Text _powerUpLabel; // Active power-up display
         private CanvasGroup _barGroup;
         private int _displayedCoins;
+        private int _displayedBest = -1;
         private float _popupTime;
         private float _fadeTime;
         private bool _barComplete;
@@ -92,9 +93,13 @@ namespace Run.UI
                 _scoreLabel.text = $"DISTANCE  {score}";
             }
 
-            if (_bestLabel != null && _game != null)
+            // BestScore only actually changes once, at Game Over - reformatting this label on
+            // every distance tick (score changes far more often) was a wasted string alloc and
+            // text-mesh rebuild multiple times a second for no visible difference.
+            if (_bestLabel != null && _game != null && _game.BestScore != _displayedBest)
             {
-                _bestLabel.text = $"BEST  {_game.BestScore}";
+                _displayedBest = _game.BestScore;
+                _bestLabel.text = $"BEST  {_displayedBest}";
             }
         }
 
