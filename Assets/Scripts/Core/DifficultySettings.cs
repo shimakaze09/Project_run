@@ -44,7 +44,7 @@ namespace Run.Core
         public static float SpeedMultiplier => Current switch
         {
             Difficulty.Easy => 0.6f,
-            Difficulty.Hard => 1.6f,
+            Difficulty.Hard => 1.3f,
             _ => 1f
         };
 
