@@ -154,16 +154,29 @@ namespace Run.EditorTools
         // legacy Input Manager) would silently do nothing.
         private static void EnsureEventSystem()
         {
-            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystemObject = eventSystem != null ? eventSystem.gameObject : new GameObject("EventSystem", typeof(EventSystem));
+
+#if ENABLE_INPUT_SYSTEM
+            var uiModule = eventSystemObject.GetComponent<InputSystemUIInputModule>();
+            if (uiModule == null)
             {
-                return;
+                uiModule = eventSystemObject.AddComponent<InputSystemUIInputModule>();
             }
 
-            var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
-#if ENABLE_INPUT_SYSTEM
-            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+            // Wires arrow keys/WASD to menu navigation and Enter to Submit, so the pause and
+            // difficulty menus are keyboard-navigable, not just clickable. Skipped once already
+            // configured (by this call or a manual Inspector setup) so re-running Build Scene
+            // never clobbers a hand-tuned actions asset.
+            if (uiModule.move.action == null || uiModule.move.action.bindings.Count == 0)
+            {
+                uiModule.AssignDefaultActions();
+            }
 #else
-            eventSystemObject.AddComponent<StandaloneInputModule>();
+            if (eventSystemObject.GetComponent<StandaloneInputModule>() == null)
+            {
+                eventSystemObject.AddComponent<StandaloneInputModule>();
+            }
 #endif
         }
 

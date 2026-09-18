@@ -34,6 +34,7 @@ namespace Run.UI
         private GameManager _game;
         private CanvasGroup _group;
         private readonly Image[] _buttons = new Image[Options.Length];
+        private readonly GameObject[] _buttonObjects = new GameObject[Options.Length];
         private int _hoveredIndex = -1;
 
         private void Awake() => BuildCanvas();
@@ -64,6 +65,22 @@ namespace Run.UI
             _group.alpha = visible ? 1f : 0f;
             _group.interactable = visible;
             _group.blocksRaycasts = visible;
+
+            if (visible)
+            {
+                // Arrow keys/WASD navigate relative to whatever is currently selected, so give
+                // keyboard focus to whichever difficulty is already chosen as soon as the menu
+                // becomes reachable, rather than leaving nothing selected to navigate from.
+                int index = System.Array.IndexOf(Options, DifficultySettings.Current);
+                if (index >= 0)
+                {
+                    EventSystem.current?.SetSelectedGameObject(_buttonObjects[index]);
+                }
+            }
+            else
+            {
+                EventSystem.current?.SetSelectedGameObject(null);
+            }
         }
 
         private void Choose(Difficulty difficulty)
@@ -130,8 +147,10 @@ namespace Run.UI
             float[] xPositions = { -190f, 0f, 190f };
             for (int i = 0; i < Options.Length; i++)
             {
-                _buttons[i] = CreateButton(panel.transform, Labels[i] + " Button", Labels[i],
+                var button = CreateButton(panel.transform, Labels[i] + " Button", Labels[i],
                     new Vector2(xPositions[i], -34f), Options[i], i);
+                _buttons[i] = button.GetComponent<Image>();
+                _buttonObjects[i] = button.gameObject;
             }
         }
 
@@ -156,7 +175,7 @@ namespace Run.UI
             return label;
         }
 
-        private Image CreateButton(Transform parent, string name, string text, Vector2 position, Difficulty difficulty, int index)
+        private Button CreateButton(Transform parent, string name, string text, Vector2 position, Difficulty difficulty, int index)
         {
             var buttonObject = new GameObject(name, typeof(Image), typeof(Button));
             buttonObject.transform.SetParent(parent, false);
@@ -187,7 +206,7 @@ namespace Run.UI
 
             CreateLabel(buttonObject.transform, text, Vector2.zero, new Vector2(150f, 50f), 22, Color.white);
 
-            return image;
+            return button;
         }
 
         /// <summary>Forwards pointer enter/exit from a button back to the owning menu.</summary>

@@ -21,6 +21,11 @@ namespace Run.Common
         /// <summary>True on the frame the confirm/jump action is first pressed.</summary>
         public static bool ConfirmPressed()
         {
+            if (IsUIFocused())
+            {
+                return false;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             var keyboard = Keyboard.current;
             if (keyboard != null &&
@@ -31,30 +36,23 @@ namespace Run.Common
                 return true;
             }
 
-            if (!IsPointerOverUI())
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
             {
-                var mouse = Mouse.current;
-                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                var touch = Touchscreen.current;
-                if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
-                {
-                    return true;
-                }
+            var touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
+            {
+                return true;
             }
 #endif
 #if ENABLE_LEGACY_INPUT_MANAGER
             if (Input.GetKeyDown(KeyCode.Space) ||
                 Input.GetKeyDown(KeyCode.UpArrow) ||
-                Input.GetKeyDown(KeyCode.W))
-            {
-                return true;
-            }
-
-            if (!IsPointerOverUI() && Input.GetMouseButtonDown(0))
+                Input.GetKeyDown(KeyCode.W) ||
+                Input.GetMouseButtonDown(0))
             {
                 return true;
             }
@@ -63,13 +61,17 @@ namespace Run.Common
         }
 
         /// <summary>
-        /// True when the pointer is over an interactive UI element (a Button, for instance).
-        /// Stops a click that resumes/restarts/quits — or picks a difficulty — from also
-        /// registering as a jump or run-start, since both read the same physical mouse press.
+        /// True when the pointer is over an interactive UI element, or a UI element (a menu
+        /// button navigated to with arrow keys, say) currently holds keyboard focus. Stops a
+        /// click or Enter press that resumes/restarts/quits — or picks a difficulty — from also
+        /// registering as a jump or run-start, since all of these read the same physical
+        /// mouse/keyboard press the UI event system just consumed.
         /// </summary>
-        private static bool IsPointerOverUI()
+        private static bool IsUIFocused()
         {
-            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            var eventSystem = EventSystem.current;
+            return eventSystem != null &&
+                (eventSystem.IsPointerOverGameObject() || eventSystem.currentSelectedGameObject != null);
         }
 
         /// <summary>True while the confirm/jump action is held (used for variable jump height).</summary>

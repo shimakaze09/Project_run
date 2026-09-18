@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Run.Common;
 using Run.Core;
@@ -33,6 +34,7 @@ namespace Run.UI
         private GameManager _game;
         private CanvasGroup _panelGroup;
         private bool _isPaused;
+        private GameObject _resumeButtonObject;
 
         private void Awake() => BuildCanvas();
 
@@ -88,6 +90,11 @@ namespace Run.UI
             _isPaused = true;
             Time.timeScale = 0f;
             SetPanelVisible(true);
+
+            // Arrow keys/WASD navigate relative to whatever is currently selected, so without
+            // this, a fresh pause would have nothing selected and keyboard navigation would
+            // have no starting point to move from.
+            EventSystem.current?.SetSelectedGameObject(_resumeButtonObject);
         }
 
         public void Resume()
@@ -95,6 +102,7 @@ namespace Run.UI
             _isPaused = false;
             Time.timeScale = 1f;
             SetPanelVisible(false);
+            EventSystem.current?.SetSelectedGameObject(null);
         }
 
         public void RestartRun()
@@ -175,7 +183,7 @@ namespace Run.UI
             divider.rectTransform.sizeDelta = new Vector2(300f, 3f);
             divider.rectTransform.anchoredPosition = new Vector2(0f, 116f);
 
-            CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 42f), Mint, Ink, Resume);
+            _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 42f), Mint, Ink, Resume).gameObject;
             CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -58f), ButtonBg, Color.white, RestartRun);
             CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -158f), ButtonBg, Danger, QuitGame);
 
@@ -212,7 +220,7 @@ namespace Run.UI
             return label;
         }
 
-        private void CreateButton(Transform parent, string name, string text, Vector2 position,
+        private Button CreateButton(Transform parent, string name, string text, Vector2 position,
             Color fillColor, Color textColor, UnityAction onClick)
         {
             var buttonObject = new GameObject(name, typeof(Image), typeof(Button));
@@ -243,6 +251,8 @@ namespace Run.UI
 
             CreateLabel(buttonObject.transform, "Label", text, Vector2.zero, new Vector2(300f, 60f),
                 30, textColor, bold: true);
+
+            return button;
         }
     }
 }
