@@ -67,7 +67,7 @@ namespace Run.Player
 
         [Header("Power-Ups")]
         [Tooltip("Run speed multiplier applied while a Speed Boost power-up is active.")]
-        [SerializeField, Min(1f)] private float _speedBoostMultiplier = 1.5f;
+        [SerializeField, Min(1f)] private float _speedBoostMultiplier = 1.3f;
 
         private Rigidbody2D _body;
         private CapsuleCollider2D _collider;
