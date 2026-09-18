@@ -60,6 +60,7 @@ namespace Run.Collectibles
             _collected = true;
             GameManager.Instance.AddCoins(_value);
             Run.Effects.GameFeel.Instance?.Emit(Run.Effects.BurstKind.Coin, transform.position);
+            Run.Audio.AudioManager.Instance?.PlayCoin();
             gameObject.SetActive(false);
         }
 
