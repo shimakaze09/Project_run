@@ -136,10 +136,10 @@ namespace Run.Player
 
         /// <summary>
         /// Re-reads <see cref="DifficultySettings"/> and recomputes the speed values derived
-        /// from it. Called from <see cref="Awake"/> for a sane default, and again right as the
-        /// run starts, since the Ready-screen difficulty picker can change the selection at any
-        /// point up until that first press — a one-time read in <see cref="Awake"/> alone would
-        /// miss any choice made after the scene loaded.
+        /// from it. Called from <see cref="Awake"/> for a sane default, and again whenever the
+        /// run actually starts (see <see cref="OnGameStateChanged"/>), since the Ready-screen
+        /// difficulty picker can change the selection at any point up until then — a one-time
+        /// read in <see cref="Awake"/> alone would miss any choice made after the scene loaded.
         /// </summary>
         private void ApplyDifficulty()
         {
@@ -153,6 +153,15 @@ namespace Run.Player
             RecomputeJumpSpan();
         }
 
+        private void Start()
+        {
+            var game = GameManager.Instance;
+            if (game != null)
+            {
+                game.StateChanged += OnGameStateChanged;
+            }
+        }
+
         private void OnEnable()
         {
             PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
@@ -163,6 +172,19 @@ namespace Run.Player
         {
             PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
             PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
+            GameManager.Instance?.StateChanged -= OnGameStateChanged;
+        }
+
+        private void OnGameStateChanged(GameState state)
+        {
+            // Re-read here rather than only at the moment PlayerController itself starts the
+            // run, since anything can start it - the Ready-screen confirm press, or the
+            // Difficulty Menu starting the run directly when its already-picked difficulty is
+            // re-confirmed. Both must pick up whatever's currently selected.
+            if (state == GameState.Playing)
+            {
+                ApplyDifficulty();
+            }
         }
 
         private void OnPowerUpActivated(PowerUpType type, float duration)
@@ -227,7 +249,6 @@ namespace Run.Player
                 }
                 if (_startArmed && confirmPressed)
                 {
-                    ApplyDifficulty();
                     game.BeginRun();
                 }
                 return;
