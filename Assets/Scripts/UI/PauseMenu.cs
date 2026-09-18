@@ -62,6 +62,14 @@ namespace Run.UI
 
         private void Update()
         {
+            // Handled directly rather than trusting the EventSystem's own Submit action
+            // end-to-end - one less link in the chain between pressing Enter and something
+            // actually happening.
+            if (_isPaused && RunInput.SubmitPressed())
+            {
+                ActivateSelected();
+            }
+
             if (!RunInput.PausePressed())
             {
                 return;
@@ -74,6 +82,15 @@ namespace Run.UI
             else if (_game != null && _game.State == GameState.Playing)
             {
                 Pause();
+            }
+        }
+
+        private static void ActivateSelected()
+        {
+            var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+            if (selected != null && selected.TryGetComponent<Button>(out var button) && button.interactable)
+            {
+                button.onClick.Invoke();
             }
         }
 
@@ -240,19 +257,38 @@ namespace Run.UI
             button.targetGraphic = image;
             button.onClick.AddListener(onClick);
 
-            // Tint hover/press feedback toward the game's Mint accent rather than the
-            // default grayscale dim, so the interaction cue matches the rest of the palette.
-            var tint = Color.Lerp(fillColor, Mint, 0.25f);
-            var colors = button.colors;
-            colors.highlightedColor = tint;
-            colors.pressedColor = Color.Lerp(fillColor, Ink, 0.35f);
-            colors.selectedColor = tint;
-            button.colors = colors;
+            // Unity's built-in ColorTint transition multiplies its state color against the
+            // graphic's own color, which only ever darkens an already-bright fill like Mint
+            // and reads as barely-there on the dark buttons too. Driving the highlight
+            // directly (hover OR keyboard focus, whichever) gives a clear, predictable cue
+            // instead, and doubles as the only visible indicator of keyboard navigation.
+            button.transition = Selectable.Transition.None;
+            var highlight = buttonObject.AddComponent<ButtonHighlight>();
+            highlight.Image = image;
+            highlight.NormalColor = fillColor;
+            highlight.HighlightColor = Color.Lerp(fillColor, Color.white, 0.3f);
 
             CreateLabel(buttonObject.transform, "Label", text, Vector2.zero, new Vector2(300f, 60f),
                 30, textColor, bold: true);
 
             return button;
+        }
+
+        /// <summary>Lightens a button's fill on mouse hover or keyboard focus, whichever is active.</summary>
+        private sealed class ButtonHighlight : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler
+        {
+            public Image Image;
+            public Color NormalColor;
+            public Color HighlightColor;
+            private bool _hovered;
+            private bool _focused;
+
+            public void OnPointerEnter(PointerEventData eventData) { _hovered = true; Refresh(); }
+            public void OnPointerExit(PointerEventData eventData) { _hovered = false; Refresh(); }
+            public void OnSelect(BaseEventData eventData) { _focused = true; Refresh(); }
+            public void OnDeselect(BaseEventData eventData) { _focused = false; Refresh(); }
+
+            private void Refresh() => Image.color = (_hovered || _focused) ? HighlightColor : NormalColor;
         }
     }
 }

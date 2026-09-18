@@ -36,6 +36,7 @@ namespace Run.UI
         private readonly Image[] _buttons = new Image[Options.Length];
         private readonly GameObject[] _buttonObjects = new GameObject[Options.Length];
         private int _hoveredIndex = -1;
+        private int _focusedIndex = -1;
 
         private void Awake() => BuildCanvas();
 
@@ -83,6 +84,23 @@ namespace Run.UI
             }
         }
 
+        private void Update()
+        {
+            // Handled directly rather than trusting the EventSystem's own Submit action
+            // end-to-end - one less link in the chain between pressing Enter and something
+            // actually happening.
+            if (!_group.interactable || !RunInput.SubmitPressed())
+            {
+                return;
+            }
+
+            var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+            if (selected != null && selected.TryGetComponent<Button>(out var button) && button.interactable)
+            {
+                button.onClick.Invoke();
+            }
+        }
+
         private void Choose(Difficulty difficulty)
         {
             DifficultySettings.Set(difficulty);
@@ -103,13 +121,28 @@ namespace Run.UI
             RefreshSelection();
         }
 
+        private void SetFocused(int index, bool focused)
+        {
+            if (focused)
+            {
+                _focusedIndex = index;
+            }
+            else if (_focusedIndex == index)
+            {
+                _focusedIndex = -1;
+            }
+
+            RefreshSelection();
+        }
+
         private void RefreshSelection()
         {
             for (int i = 0; i < _buttons.Length; i++)
             {
+                bool highlighted = i == _hoveredIndex || i == _focusedIndex;
                 _buttons[i].color = Options[i] == DifficultySettings.Current
                     ? Mint
-                    : i == _hoveredIndex ? ButtonBg : ButtonIdle;
+                    : highlighted ? ButtonBg : ButtonIdle;
             }
         }
 
@@ -194,13 +227,13 @@ namespace Run.UI
             button.targetGraphic = image;
             button.onClick.AddListener(() => Choose(difficulty));
 
-            // The fill itself is only shown on hover (see RefreshSelection); the built-in
-            // transition just adds a touch of press feedback on top of that.
-            var colors = button.colors;
-            colors.pressedColor = Color.Lerp(ButtonBg, Ink, 0.35f);
-            button.colors = colors;
+            // The fill is driven entirely through RefreshSelection (hover OR keyboard focus,
+            // whichever) rather than Unity's built-in ColorTint transition, which multiplies
+            // its state color against the graphic's own - a no-op against this button's fully
+            // transparent idle color.
+            button.transition = Selectable.Transition.None;
 
-            var relay = buttonObject.AddComponent<HoverRelay>();
+            var relay = buttonObject.AddComponent<InteractionRelay>();
             relay.Menu = this;
             relay.Index = index;
 
@@ -209,14 +242,16 @@ namespace Run.UI
             return button;
         }
 
-        /// <summary>Forwards pointer enter/exit from a button back to the owning menu.</summary>
-        private sealed class HoverRelay : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+        /// <summary>Forwards pointer enter/exit and keyboard focus from a button back to the owning menu.</summary>
+        private sealed class InteractionRelay : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler
         {
             public DifficultyMenu Menu;
             public int Index;
 
             public void OnPointerEnter(PointerEventData eventData) => Menu.SetHovered(Index, true);
             public void OnPointerExit(PointerEventData eventData) => Menu.SetHovered(Index, false);
+            public void OnSelect(BaseEventData eventData) => Menu.SetFocused(Index, true);
+            public void OnDeselect(BaseEventData eventData) => Menu.SetFocused(Index, false);
         }
     }
 }

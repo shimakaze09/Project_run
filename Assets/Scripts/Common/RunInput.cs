@@ -111,6 +111,29 @@ namespace Run.Common
             return false;
         }
 
+        /// <summary>
+        /// True on the frame the Enter key is first pressed. Menus call this directly and
+        /// invoke whatever's selected themselves, rather than trusting the EventSystem's own
+        /// Submit action end-to-end — one less link in the chain to go wrong.
+        /// </summary>
+        public static bool SubmitPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
         /// <summary>True on the frame the pause toggle (Escape, or the Android back button) is pressed.</summary>
         public static bool PausePressed()
         {
