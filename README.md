@@ -24,6 +24,8 @@ editable layered sprite artwork keeps each entity readable at a glance.
 
 - **Confirm** (Space / W / ↑ / left-click / tap): start the run, jump, and restart.
 - The player **auto-runs**; you only control jumping.
+- **Menus** (Difficulty select, Pause): navigate with **arrow keys / W-A-S-D**,
+  confirm the highlighted button with **Enter**, or just click/tap it directly.
 
 ### Jump
 
@@ -35,6 +37,37 @@ You die by touching a hazard, falling into a pit, or being left behind the camer
 > Multi/triple jump and wall-jump are intentionally left out for now to keep the
 > challenge honest. The player's `Visual` child and derived jump-reach are already in
 > place, so they can be layered back in later without reworking the core.
+
+## Difficulty
+
+Before starting a run, pick **Easy / Normal / Hard** from the panel on the Ready
+screen. The choice persists across sessions (`PlayerPrefs`) and is re-applied every
+time a run starts, so switching difficulty and restarting always takes effect
+immediately — it isn't just a one-time value read at scene load.
+
+| Difficulty | Run speed | Speed ramp-up | Hazard ramp distance | Starting hazard level |
+|------------|-----------|---------------|-----------------------|------------------------|
+| Easy       | 0.6×      | 0.4×          | 3× (slower to ramp)   | 0 (easiest chunks only)|
+| Normal     | 1×        | 1×            | 1×                    | 0.1                    |
+| Hard       | 1.3×      | 2.2×          | 0.35× (fast ramp)     | 0.65 (near max)        |
+
+Selecting the difficulty that's already active (or pressing Enter on it again)
+starts the run immediately instead of requiring a separate confirm. See
+`Core/DifficultySettings.cs`.
+
+## Power-ups
+
+Pickups placed in level chunks (`Collectibles/PowerUpPickup`) grant a timed effect
+on contact, shown on the HUD and cleared automatically on expiry:
+
+- **Shield**: absorbs the next hazard hit instead of killing the player, then
+  breaks (with a spark burst) and expires.
+- **Speed Boost**: multiplies run speed by 1.3× for the pickup's duration.
+- **Double Jump**: grants one extra mid-air jump per landing while active.
+
+Durations are configured per-pickup in the Inspector (5–8s by default). See
+`Core/PowerUpEvents.cs` and the `OnPowerUpActivated`/`OnPowerUpExpired` handling in
+`Player/PlayerController.cs`.
 
 ## Sprint one: distance target and currency
 
