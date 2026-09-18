@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -30,28 +31,45 @@ namespace Run.Common
                 return true;
             }
 
-            var mouse = Mouse.current;
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+            if (!IsPointerOverUI())
             {
-                return true;
-            }
+                var mouse = Mouse.current;
+                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                {
+                    return true;
+                }
 
-            var touch = Touchscreen.current;
-            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
-            {
-                return true;
+                var touch = Touchscreen.current;
+                if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
+                {
+                    return true;
+                }
             }
 #endif
 #if ENABLE_LEGACY_INPUT_MANAGER
             if (Input.GetKeyDown(KeyCode.Space) ||
                 Input.GetKeyDown(KeyCode.UpArrow) ||
-                Input.GetKeyDown(KeyCode.W) ||
-                Input.GetMouseButtonDown(0))
+                Input.GetKeyDown(KeyCode.W))
+            {
+                return true;
+            }
+
+            if (!IsPointerOverUI() && Input.GetMouseButtonDown(0))
             {
                 return true;
             }
 #endif
             return false;
+        }
+
+        /// <summary>
+        /// True when the pointer is over an interactive UI element (a Button, for instance).
+        /// Stops a click that resumes/restarts/quits — or picks a difficulty — from also
+        /// registering as a jump or run-start, since both read the same physical mouse press.
+        /// </summary>
+        private static bool IsPointerOverUI()
+        {
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         }
 
         /// <summary>True while the confirm/jump action is held (used for variable jump height).</summary>
