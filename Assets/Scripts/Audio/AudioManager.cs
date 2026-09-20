@@ -40,6 +40,8 @@ namespace Run.Audio
 
         private void Start()
         {
+            ApplyMusicVolume();
+
             if (_musicSource != null && _backgroundMusic != null)
             {
                 _musicSource.clip = _backgroundMusic;
@@ -57,11 +59,24 @@ namespace Run.Audio
         private void OnEnable()
         {
             PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
+            VolumePreferences.Changed += ApplyMusicVolume;
         }
 
         private void OnDisable()
         {
             PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
+            VolumePreferences.Changed -= ApplyMusicVolume;
+        }
+
+        // SFX volume is baked into each PlayOneShot call instead (see PlaySfx), since
+        // one-shots don't share a single persistent volume the way the looping music
+        // source does.
+        private void ApplyMusicVolume()
+        {
+            if (_musicSource != null)
+            {
+                _musicSource.volume = VolumePreferences.MusicVolume;
+            }
         }
 
         private void OnPowerUpActivated(PowerUpType type, float duration)
@@ -83,7 +98,7 @@ namespace Run.Audio
         {
             if (clip != null && _sfxSource != null)
             {
-                _sfxSource.PlayOneShot(clip);
+                _sfxSource.PlayOneShot(clip, VolumePreferences.SfxVolume);
             }
         }
     }
