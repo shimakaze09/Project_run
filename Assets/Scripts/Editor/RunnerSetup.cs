@@ -63,6 +63,7 @@ namespace Run.EditorTools
             camera.transform.position = new Vector3(0f, 1f, -10f);
 
             GetOrAdd<CameraFollow>(camera.gameObject);
+            GetOrAdd<CameraShake>(camera.gameObject);
         }
 
         private static void ConfigurePlayer()

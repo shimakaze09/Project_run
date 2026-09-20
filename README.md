@@ -197,3 +197,20 @@ every piece in the world — no per-piece setup needed.
 - **Tools > Endless Runner > Verify Visual Effects** checks every burst type, pool
   bounds under 1,000 bursts, particle expiry/fade, pause, rebasing, intensity zero,
   authored artwork, item sparkles and persistent scenery sprites.
+
+### Camera impact shake
+
+- `CameraShake` on Main Camera observes `PlayerHealth.HealthChanged`; damage logic is
+  unchanged. The current heart-based game treats one lost heart as a heavy hit by
+  default. Increase **Heavy Damage Threshold** if multi-heart hits are introduced.
+- Inspector settings: **Intensity** (0.12 world units), **Duration** (0.22 seconds),
+  and **Decay Rate** (2; higher settles faster). Set intensity to zero to disable.
+- No explosion gameplay system exists yet. Connect a major explosion's UnityEvent
+  to Main Camera's `CameraShake.TriggerMajorExplosion()`, or call that method from
+  its callback. It only triggers the visual effect; it does not create explosions.
+- Offset is removed before camera following, then applied after it. Repeated hits
+  restart the effect without stacking. Pause removes the offset and freezes its
+  timer; disabling restores the clean pose. Rotation and zoom stay unchanged.
+- **Tools > Endless Runner > Verify Camera Shake** simulates damage and explosion
+  callbacks in an isolated preview scene, including expiry, threshold, healing,
+  pause, cleanup, rebasing and 1,000 repeated events. Stop Play mode before running.
