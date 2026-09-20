@@ -8,7 +8,7 @@ using Run.Core;
 namespace Run.UI
 {
     /// <summary>
-    /// Builds and drives the pause overlay: Resume / Restart / Quit, toggled by
+    /// Builds and drives the pause overlay: Resume / Settings / Restart / Quit, toggled by
     /// Escape (or the Android back button, which Unity also maps to Escape).
     /// </summary>
     /// <remarks>
@@ -17,7 +17,10 @@ namespace Run.UI
     /// makes sense mid-run, so the toggle is ignored outside
     /// <see cref="GameState.Playing"/>, and an active pause is force-cleared if the
     /// run ends (or the object is destroyed) while paused, so it never leaves
-    /// <see cref="Time.timeScale"/> stuck at zero.
+    /// <see cref="Time.timeScale"/> stuck at zero. Settings is a second full-screen view
+    /// (see <see cref="SettingsMenu"/>) that swaps in over this one rather than a button
+    /// on the same card, so Escape backs out of it one step at a time instead of resuming
+    /// the run straight from the middle of adjusting a slider.
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class PauseMenu : MonoBehaviour
@@ -32,11 +35,20 @@ namespace Run.UI
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
 
         private GameManager _game;
+        private SettingsMenu _settingsMenu;
         private CanvasGroup _panelGroup;
         private bool _isPaused;
+        private bool _showingSettings;
         private GameObject _resumeButtonObject;
+        private GameObject _settingsButtonObject;
 
-        private void Awake() => BuildCanvas();
+        private void Awake()
+        {
+            BuildCanvas();
+
+            _settingsMenu = gameObject.AddComponent<SettingsMenu>();
+            _settingsMenu.BackRequested += CloseSettings;
+        }
 
         private void Start()
         {
@@ -52,6 +64,11 @@ namespace Run.UI
             if (_game != null)
             {
                 _game.StateChanged -= OnGameStateChanged;
+            }
+
+            if (_settingsMenu != null)
+            {
+                _settingsMenu.BackRequested -= CloseSettings;
             }
 
             if (_isPaused)
@@ -75,7 +92,11 @@ namespace Run.UI
                 return;
             }
 
-            if (_isPaused)
+            if (_showingSettings)
+            {
+                CloseSettings();
+            }
+            else if (_isPaused)
             {
                 Resume();
             }
@@ -119,7 +140,32 @@ namespace Run.UI
             _isPaused = false;
             Time.timeScale = 1f;
             SetPanelVisible(false);
+
+            // Defensive: a run ending while Settings is open (see OnGameStateChanged) should
+            // never leave the settings canvas showing over gameplay.
+            if (_showingSettings)
+            {
+                _showingSettings = false;
+                _settingsMenu.Hide();
+            }
+
             EventSystem.current?.SetSelectedGameObject(null);
+        }
+
+        private void OpenSettings()
+        {
+            _showingSettings = true;
+            SetPanelVisible(false);
+            _settingsMenu.Show();
+            EventSystem.current?.SetSelectedGameObject(_settingsMenu.FirstFocusObject);
+        }
+
+        private void CloseSettings()
+        {
+            _showingSettings = false;
+            _settingsMenu.Hide();
+            SetPanelVisible(true);
+            EventSystem.current?.SetSelectedGameObject(_settingsButtonObject);
         }
 
         public void RestartRun()
@@ -179,7 +225,7 @@ namespace Run.UI
             glow.type = Image.Type.Sliced;
             glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
             glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            glow.rectTransform.sizeDelta = new Vector2(424f, 504f);
+            glow.rectTransform.sizeDelta = new Vector2(424f, 604f);
 
             var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
             card.transform.SetParent(panelObject.transform, false);
@@ -187,9 +233,9 @@ namespace Run.UI
             card.type = Image.Type.Sliced;
             card.color = Panel;
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            card.rectTransform.sizeDelta = new Vector2(400f, 480f);
+            card.rectTransform.sizeDelta = new Vector2(400f, 580f);
 
-            CreateLabel(card.transform, "Title", "PAUSED", new Vector2(0f, 178f), new Vector2(360f, 74f),
+            CreateLabel(card.transform, "Title", "PAUSED", new Vector2(0f, 228f), new Vector2(360f, 74f),
                 46, Mint, bold: true, shadow: true);
 
             var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
@@ -198,11 +244,12 @@ namespace Run.UI
             divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
             divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             divider.rectTransform.sizeDelta = new Vector2(300f, 3f);
-            divider.rectTransform.anchoredPosition = new Vector2(0f, 116f);
+            divider.rectTransform.anchoredPosition = new Vector2(0f, 166f);
 
-            _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 42f), Mint, Ink, Resume).gameObject;
-            CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -58f), ButtonBg, Color.white, RestartRun);
-            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -158f), ButtonBg, Danger, QuitGame);
+            _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 92f), Mint, Ink, Resume).gameObject;
+            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, -4f), ButtonBg, Color.white, OpenSettings).gameObject;
+            CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -100f), ButtonBg, Color.white, RestartRun);
+            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -196f), ButtonBg, Danger, QuitGame);
 
             SetPanelVisible(false);
         }
