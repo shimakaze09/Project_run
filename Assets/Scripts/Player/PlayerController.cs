@@ -124,6 +124,14 @@ namespace Run.Player
         public float LowJumpMultiplier => _lowJumpMultiplier;
         public float CoyoteTime => _coyoteTime;
         public float TimeToApex => _timeToApex;
+        public float CatchUpGain => _catchUpGain;
+        public float MaxCatchUpSpeed => _maxCatchUpSpeed;
+        public float CatchUpDeadzone => _catchUpDeadzone;
+
+        /// <summary>How far the runner trails the scroll line (negative when ahead); drives the catch-up sprint.</summary>
+        public float ScrollLag => WorldScroller.Instance != null
+            ? WorldScroller.Instance.ScrollX - _body.position.x
+            : 0f;
 
         /// <summary>World Y below which a fall is fatal (see <see cref="CheckDeathBounds"/>).</summary>
         public float FallDeathY => _camera != null
@@ -392,13 +400,40 @@ namespace Run.Player
             return Mathf.Min(behind * _catchUpGain, _maxCatchUpSpeed);
         }
 
+        /// <summary>True if the feet are on ground right now (a fresh physics check with no side effects).</summary>
+        public bool TouchingGround()
+        {
+            Bounds bounds = _collider.bounds;
+            Vector2 feet = new Vector2(bounds.center.x, bounds.min.y - _groundCheckOffset);
+            return Physics2D.OverlapBox(feet, _groundCheckSize, 0f, _groundLayers) != null;
+        }
+
+        /// <summary>
+        /// Jumps right now if a ground jump is allowed, and reports whether it happened. Lets a
+        /// computer-controlled source act on the exact physics step it planned for, instead of
+        /// waiting for the next rendered frame the way button presses do.
+        /// </summary>
+        public bool RequestJump()
+        {
+            var game = GameManager.Instance;
+            if (_isDead || game == null || game.State != GameState.Playing)
+            {
+                return false;
+            }
+            if (_coyoteCounter <= 0f && !TouchingGround())
+            {
+                return false;
+            }
+
+            Jump();
+            return true;
+        }
+
         /// <summary>Refreshes the grounded flag and coyote timer.</summary>
         private void UpdateGrounded()
         {
             bool wasGrounded = _isGrounded;
-            Bounds bounds = _collider.bounds;
-            Vector2 feet = new Vector2(bounds.center.x, bounds.min.y - _groundCheckOffset);
-            _isGrounded = Physics2D.OverlapBox(feet, _groundCheckSize, 0f, _groundLayers) != null;
+            _isGrounded = TouchingGround();
             if (!wasGrounded && _isGrounded && _body.linearVelocity.y <= 0f &&
                 GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
                 Landed?.Invoke();
