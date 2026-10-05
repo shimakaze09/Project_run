@@ -69,6 +69,59 @@ Durations are configured per-pickup in the Inspector (5–8s by default). See
 `Core/PowerUpEvents.cs` and the `OnPowerUpActivated`/`OnPowerUpExpired` handling in
 `Player/PlayerController.cs`.
 
+## Environment mode
+
+A single-player mode where **you are the level**. A computer runner plays the run, and you
+drop traps ahead of it while the game keeps going; there is no pausing to build. Pick
+**PLAY AS ▸ ENVIRONMENT** on the Ready screen (saved in `PlayerPrefs` like difficulty),
+then start the run as usual.
+
+- **Controls:** `1`–`3` or the mouse wheel pick a trap; **left-click** places it. A preview
+  follows the cursor: green where the trap fits, red with a reason on the HUD where it doesn't.
+- **Traps:** Crate (20 energy, a solid block to jump), Spikes (30, cost a heart), Drone (45,
+  paces back and forth over its patch of ground).
+- **Energy** starts at 40/100, refills 9 per second, and refunds 15 for every heart the runner loses.
+- **Fair play:** a placed trap is a harmless pulsing ghost for 0.4 s before it turns real.
+  Nothing can be placed in the faint red zone in front of the runner, which always covers that
+  0.4 s plus 0.25 s of warning at its current speed. Traps need flat ground and 1 unit of space
+  between them, and each level chunk holds at most two.
+- **Goal:** stop the runner as early as you can. Game Over shows where it was stopped; the
+  **fastest stop** (shortest distance) is your record. Environment runs never touch the
+  runner records or the coin wallet.
+- **Difficulty** sets the computer runner's skill (and the usual speed curve): Easy notices new
+  traps after 0.45 s and makes the most timing mistakes; Hard notices after 0.18 s and rarely slips.
+- The camera zooms out a little and looks further ahead in this mode so there is room to plan.
+
+### How the computer runner works
+
+`AI/RunnerAI` drives the same `PlayerController` as a person, through the `IRunnerInput`
+interface, and jumps with `PlayerController.RequestJump` on the exact physics step it planned.
+`AI/JumpPlanner` copies the nearby level into rectangles (every level piece is an axis-aligned
+box) and simulates the runner with the controller's real numbers: gravity, variable jump height,
+coyote time and the catch-up sprint. If running straight on would hurt it, the planner tries a
+jump at each step before the danger, with several hold lengths, and keeps the ones that land
+safely with solid footing. `AI/RunnerBrain` aims for the take-off furthest from both edges of
+that safe window, keeps the target stable as it gets closer, and adds the skill-based timing
+error. Placed traps reach it through `PlacedTrap.Active` only after its reaction delay. Turn on
+**Log Decisions** on the Player's `RunnerAI` to see every jump in the Console; with Gizmos
+on, the Scene view also draws the planned jump arc.
+
+### Files and tuning
+
+- `EnvironmentMode/EnvironmentPlayer`: energy, hotbar costs, arm delay, warning margin,
+  spacing and per-chunk limits (all in the Inspector on **Environment Player**).
+- `EnvironmentMode/PlacedTrap`, `TrapFactory`: the traps, drawn in code in the twilight style.
+  They are parented to the chunk they sit on, so they scroll, re-base and recycle with it
+  (`Generation/IChunkAttachment`).
+- `AI/RunnerAI`: per-difficulty skill (reaction time, timing jitter, mistake chance and size).
+- `CameraRig/CameraFollow`: the Environment-mode lead, zoom and height.
+- `UI/ModeMenu`, `UI/EnvironmentHud`; `UI/HudController` swaps its prompts and record.
+- **Tools ▸ Endless Runner ▸ Add Environment Mode** adds just these objects to an existing
+  scene (Build Scene also includes them).
+- **Tools ▸ Endless Runner ▸ Verify Environment Mode** flies the computer runner through
+  copies of every authored layout (and a drone) at speeds 6 to 20.8, checks the chunk-seam
+  window, drone prediction, trap building and scoring. Player data is restored afterwards.
+
 ## Sprint one: distance target and currency
 
 - The unlabeled HUD bar compares distance travelled to the **previous completed run**,
