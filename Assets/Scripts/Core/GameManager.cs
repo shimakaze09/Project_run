@@ -60,6 +60,10 @@ namespace Run.Core
         public event Action<int> ScoreChanged;
 
         public GameState State { get; private set; } = GameState.Ready;
+
+        /// <summary>The <see cref="GameMode"/> this run started in; fixed until the next restart.</summary>
+        public GameMode RunMode { get; private set; }
+
         public int Score { get; private set; }
         public int BestScore { get; private set; }
         public DeathCause LastDeathCause { get; private set; }
@@ -90,6 +94,7 @@ namespace Run.Core
             }
 
             Instance = this;
+            RunMode = GameModeSettings.Current;
             BestScore = Mathf.Max(0, PlayerPrefs.GetInt(_bestDistanceScoreKey, 0));
             LastRunDistance = Mathf.Max(0f, PlayerPrefs.GetFloat(LastRunKey, 0f));
             Coins = Mathf.Max(0, PlayerPrefs.GetInt(CoinsKey, 0));
@@ -153,6 +158,7 @@ namespace Run.Core
             _runStartX = _distanceSource != null ? _distanceSource.position.x : 0f;
             Distance = 0f;
             RunCoins = 0;
+            RunMode = GameModeSettings.Current;
             SetState(GameState.Playing);
         }
 
