@@ -528,7 +528,21 @@ namespace Run.AI
                         y = solid.yMax + halfH;
                         velocityY = 0f;
                         grounded = true;
-                        footing |= x >= solid.xMin && x <= solid.xMax;
+                    }
+                }
+
+                // Footing is checked against every piece at standing height, not just the one
+                // landed on: where two ground pieces meet (every chunk seam) either one counts.
+                if (grounded)
+                {
+                    float feet = y - halfH;
+                    foreach (Rect solid in _solids)
+                    {
+                        if (Mathf.Abs(solid.yMax - feet) <= Skin && x >= solid.xMin && x <= solid.xMax)
+                        {
+                            footing = true;
+                            break;
+                        }
                     }
                 }
             }
