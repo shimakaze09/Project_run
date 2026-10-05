@@ -32,11 +32,11 @@ namespace Run.AI
     {
         [Header("Skill per difficulty (Easy = an easier runner to stop)")]
         [SerializeField] private RunnerBrain.Skill _easy = new RunnerBrain.Skill
-            { ReactionTime = 0.45f, TimingJitter = 0.05f, MistakeChance = 0.15f, MistakeSize = 0.12f };
+            { ReactionTime = 0.45f, TimingJitter = 0.04f, MistakeChance = 0.08f, MistakeSize = 0.1f };
         [SerializeField] private RunnerBrain.Skill _normal = new RunnerBrain.Skill
-            { ReactionTime = 0.3f, TimingJitter = 0.03f, MistakeChance = 0.06f, MistakeSize = 0.1f };
+            { ReactionTime = 0.3f, TimingJitter = 0.025f, MistakeChance = 0.03f, MistakeSize = 0.08f };
         [SerializeField] private RunnerBrain.Skill _hard = new RunnerBrain.Skill
-            { ReactionTime = 0.18f, TimingJitter = 0.012f, MistakeChance = 0.015f, MistakeSize = 0.08f };
+            { ReactionTime = 0.18f, TimingJitter = 0.01f, MistakeChance = 0.01f, MistakeSize = 0.06f };
 
         [Header("Planning")]
         [Tooltip("How far ahead (in seconds of running) the runner looks for danger.")]
