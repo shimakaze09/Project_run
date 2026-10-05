@@ -56,11 +56,11 @@ namespace Run.EnvironmentMode
             new TrapCard { Kind = TrapKind.Drone, Label = "DRONE", Cost = 45 }
         };
         [Tooltip("Seconds a placed trap stays a harmless ghost before it turns real.")]
-        [SerializeField, Min(0f)] private float _armDelay = 0.45f;
+        [SerializeField, Min(0f)] private float _armDelay = 0.4f;
 
         [Header("Fair Play")]
         [Tooltip("Seconds of warning, on top of the arm delay, that the red zone in front of the runner guarantees.")]
-        [SerializeField, Min(0f)] private float _reactionMargin = 0.35f;
+        [SerializeField, Min(0f)] private float _reactionMargin = 0.25f;
         [Tooltip("Minimum gap between two placed traps, in world units.")]
         [SerializeField, Min(0f)] private float _minTrapGap = 1f;
         [Tooltip("Most placed traps a single level chunk can hold.")]
@@ -397,7 +397,7 @@ namespace Run.EnvironmentMode
             _footprintBar = MakeSprite("Footprint", previews, 24);
             _zone = MakeSprite("No-Place Zone", transform, 20);
             _zoneEdge = MakeSprite("No-Place Edge", transform, 21);
-            _zone.color = new Color(InvalidTint.r, InvalidTint.g, InvalidTint.b, 0.09f);
+            _zone.color = new Color(InvalidTint.r, InvalidTint.g, InvalidTint.b, 0.045f);
             _zoneEdge.color = new Color(InvalidTint.r, InvalidTint.g, InvalidTint.b, 0.45f);
             SetZoneVisible(false);
         }

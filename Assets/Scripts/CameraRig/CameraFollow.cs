@@ -31,11 +31,11 @@ namespace Run.CameraRig
 
         [Header("Environment Mode")]
         [Tooltip("Lead distance in Environment mode: the view sits further ahead so traps can be planned.")]
-        [SerializeField] private float _environmentLeadDistance = 7f;
+        [SerializeField] private float _environmentLeadDistance = 8f;
         [Tooltip("Orthographic size in Environment mode (larger shows more of the level).")]
-        [SerializeField, Min(1f)] private float _environmentOrthographicSize = 6.5f;
+        [SerializeField, Min(1f)] private float _environmentOrthographicSize = 7f;
         [Tooltip("Fixed world-space Y in Environment mode, keeping the ground at a similar screen height.")]
-        [SerializeField] private float _environmentFixedY = 2f;
+        [SerializeField] private float _environmentFixedY = 2.2f;
 
         private const float CameraZ = -10f;
 
