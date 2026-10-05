@@ -95,6 +95,10 @@ namespace Run.Player
         private bool _doubleJumpActive;
         private bool _airJumpUsed;
 
+        // Who presses jump during a run. Starting the run always stays with the human
+        // (RunInput), so the Ready screen works the same in every mode.
+        private IRunnerInput _input = HumanRunnerInput.Instance;
+
         /// <summary>Current forward run speed (grows over the session up to the max; boosted while Speed Boost is active).</summary>
         public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f);
 
@@ -104,8 +108,36 @@ namespace Run.Player
         /// <summary>Approximate horizontal distance clearable in a single full jump.</summary>
         public float MaxJumpSpan { get; private set; }
         public bool IsGrounded => _isGrounded;
+        public bool IsDead => _isDead;
+
+        /// <summary>True while a ground jump would be accepted (on the ground, or inside coyote time).</summary>
+        public bool CanJump => _coyoteCounter > 0f;
+
+        /// <summary>Horizontal speed applied on the last physics step, including any catch-up bonus.</summary>
+        public float ForwardSpeed { get; private set; }
+
+        // The numbers behind the jump arc, published so the computer runner can simulate
+        // exactly the same physics this controller applies in FixedUpdate.
+        public float Gravity => _gravity;
+        public float JumpVelocity => _jumpVelocity;
+        public float FallGravityMultiplier => _fallGravityMultiplier;
+        public float LowJumpMultiplier => _lowJumpMultiplier;
+        public float CoyoteTime => _coyoteTime;
+        public float TimeToApex => _timeToApex;
+
+        /// <summary>World Y below which a fall is fatal (see <see cref="CheckDeathBounds"/>).</summary>
+        public float FallDeathY => _camera != null
+            ? _camera.transform.position.y - _camera.orthographicSize - _killMarginBelow
+            : float.NegativeInfinity;
+
         public event System.Action Jumped;
         public event System.Action Landed;
+
+        /// <summary>Hands jump control to another source (e.g. the computer runner); null restores the human.</summary>
+        public void SetInputSource(IRunnerInput source)
+        {
+            _input = source ?? HumanRunnerInput.Instance;
+        }
 
         private void Awake()
         {
@@ -247,8 +279,6 @@ namespace Run.Player
 
             UpdateGrounded();
 
-            bool confirmPressed = RunInput.ConfirmPressed();
-
             // While waiting to start, the first *fresh* press begins the run instead of
             // jumping — and we require a release first so a click carried over from
             // entering play (or the last run) can't auto-start it.
@@ -258,7 +288,7 @@ namespace Run.Player
                 {
                     _startArmed = true;
                 }
-                if (_startArmed && confirmPressed)
+                if (_startArmed && RunInput.ConfirmPressed())
                 {
                     game.BeginRun();
                 }
@@ -270,7 +300,7 @@ namespace Run.Player
                 return;
             }
 
-            _bufferCounter = confirmPressed ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
+            _bufferCounter = _input.JumpPressed() ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
             if (_bufferCounter > 0f)
             {
                 if (_coyoteCounter > 0f)
@@ -327,11 +357,12 @@ namespace Run.Player
             {
                 velocityY += Physics2D.gravity.y * _body.gravityScale * (_fallGravityMultiplier - 1f) * Time.fixedDeltaTime;
             }
-            else if (velocityY > 0f && !RunInput.JumpHeld())
+            else if (velocityY > 0f && !_input.JumpHeld())
             {
                 velocityY += Physics2D.gravity.y * _body.gravityScale * (_lowJumpMultiplier - 1f) * Time.fixedDeltaTime;
             }
 
+            ForwardSpeed = velocityX;
             _body.linearVelocity = new Vector2(velocityX, velocityY);
         }
 
