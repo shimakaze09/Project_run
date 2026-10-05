@@ -187,7 +187,8 @@ namespace Run.AI
                 float perStep = speed * dt;
                 _lastDecision = $"planned x={x + _brain.StepsUntilTakeoff * perStep:F2} " +
                     $"(safe x={x + plan.WindowStart * perStep:F2}..{x + plan.WindowEnd * perStep:F2}, " +
-                    $"error {_brain.TimingErrorSteps} steps{(plan.Clean ? "" : ", no clean option")})";
+                    $"error {_brain.TimingErrorSteps} steps, lag {_player.ScrollLag:F2}" +
+                    $"{(plan.Clean ? "" : ", no clean option")})";
             }
             if (_drawPlan)
             {
