@@ -16,6 +16,12 @@ namespace Run.AI
         public float FallMultiplier;
         public float LowJumpMultiplier;
         public float CoyoteTime;
+
+        // The controller's catch-up sprint: extra speed in proportion to how far the runner
+        // trails the scroll line. Leave at zero to simulate a constant speed.
+        public float CatchUpGain;
+        public float MaxCatchUp;
+        public float CatchUpDeadzone;
     }
 
     /// <summary>A snapshot of the runner at one moment of a simulation.</summary>
@@ -26,8 +32,17 @@ namespace Run.AI
         public float VelocityY;
         public bool Grounded;
 
+        /// <summary>
+        /// Standing with its centre over solid ground: a full-strength take-off spot. Near an
+        /// edge the real (round-bottomed) capsule is already starting to roll off.
+        /// </summary>
+        public bool Footing;
+
         /// <summary>Seconds since the runner last stood on ground (for coyote time).</summary>
         public float AirTime;
+
+        /// <summary>How far the runner trails the scroll line (negative when ahead).</summary>
+        public float Lag;
     }
 
     /// <summary>What the planner decided: leave the ground after a delay, holding jump for a while.</summary>
@@ -80,6 +95,12 @@ namespace Run.AI
 
         /// <summary>Half-width used against ground; matches the controller's ground-check box.</summary>
         public float SolidHalfWidth = 0.3f;
+
+        /// <summary>
+        /// How far past an edge the runner's centre may be and still land. Smaller than
+        /// <see cref="SolidHalfWidth"/>: a capsule caught on a corner slides off rather than landing.
+        /// </summary>
+        public float LandingHalfWidth = 0.1f;
 
         /// <summary>After landing past the danger, the runner needs at least this long on its feet.</summary>
         public float MinRunway = 0.04f;
@@ -198,11 +219,12 @@ namespace Run.AI
                 if (CanTakeOff(takeoff))
                 {
                     // Keep the hold that lands with the most ground ahead; on ties the longer
-                    // hold wins, since it also clears hazards by more.
+                    // hold wins, since it also clears hazards by more. Only a take-off with
+                    // solid footing counts as clean; coyote-time jumps are a last resort.
                     foreach (float hold in HoldOptions)
                     {
                         Trial trial = TryJump(takeoff, k, runSpeed, dt, hold, danger.ClearX, jumpSteps, null);
-                        if (trial.Outcome == Outcome.Safe)
+                        if (trial.Outcome == Outcome.Safe && takeoff.Footing)
                         {
                             if (trial.Runway > bestRunway)
                             {
@@ -328,12 +350,16 @@ namespace Run.AI
 
             float halfH = Model.Size.y * 0.5f;
             float bottom = state.Position.y - halfH;
+            float x = state.Position.x;
             float best = float.NegativeInfinity;
+            bool footing = false;
             foreach (Rect solid in _solids)
             {
-                if (solid.xMax <= state.Position.x - SolidHalfWidth || solid.xMin >= state.Position.x + SolidHalfWidth) continue;
-                if (Mathf.Abs(solid.yMax - bottom) <= 0.15f && solid.yMax > best)
+                if (solid.xMax <= x - SolidHalfWidth || solid.xMin >= x + SolidHalfWidth) continue;
+                if (Mathf.Abs(solid.yMax - bottom) <= 0.15f && solid.yMax >= best)
                 {
+                    footing = solid.yMax > best ? x >= solid.xMin && x <= solid.xMax
+                        : footing || (x >= solid.xMin && x <= solid.xMax);
                     best = solid.yMax;
                 }
             }
@@ -342,15 +368,24 @@ namespace Run.AI
             {
                 state.Position.y = best + halfH;
                 state.VelocityY = Mathf.Min(0f, state.VelocityY);
+                state.Footing = footing;
             }
             return state;
         }
 
-        // Falling is fatal, so it ranks below getting hit or blocked; between equal outcomes,
-        // the one that goes wrong later is better.
+        // Ranks last-resort options: a safe but shaky (coyote-time) jump beats getting hit, and
+        // falling is fatal, so it ranks below being hit or blocked. Between equal outcomes, the
+        // one that goes wrong later is better.
         private static int Score(Trial trial)
         {
-            int severity = trial.Outcome == Outcome.Fell ? 0 : trial.Outcome == Outcome.Blocked ? 1 : 2;
+            int severity;
+            switch (trial.Outcome)
+            {
+                case Outcome.Safe: severity = 3; break;
+                case Outcome.Hit: severity = 2; break;
+                case Outcome.Blocked: severity = 1; break;
+                default: severity = 0; break;
+            }
             return severity * 100000 + trial.Step;
         }
 
@@ -390,7 +425,7 @@ namespace Run.AI
         /// <summary>
         /// Jumps from <paramref name="takeoff"/> (reached at step <paramref name="takeoffStep"/>).
         /// Safe means landing on ground at or beyond <paramref name="clearX"/>, unharmed, with
-        /// at least <see cref="MinRunway"/> on its feet before the ground runs out.
+        /// at least <see cref="MinRunway"/> of solid footing to jump from again.
         /// </summary>
         private Trial TryJump(RunnerState takeoff, int takeoffStep, float runSpeed, float dt, float hold,
             float clearX, int maxSteps, List<Vector2> record)
@@ -398,7 +433,9 @@ namespace Run.AI
             RunnerState state = takeoff;
             state.VelocityY = Model.JumpVelocity;
             state.Grounded = false;
-            int landedAt = -1;
+            state.Footing = false;
+            bool landed = false;
+            int runway = 0;
             int runwayCap = Mathf.Max(1, Mathf.RoundToInt(RunwayCap / dt));
             int minRunway = Mathf.Max(1, Mathf.RoundToInt(MinRunway / dt));
 
@@ -413,27 +450,28 @@ namespace Run.AI
                     return new Trial { Outcome = outcome, Step = takeoffStep + i };
                 }
 
-                if (landedAt < 0)
+                if (!landed)
                 {
-                    if (state.Grounded && state.Position.x >= clearX)
-                    {
-                        landedAt = i;
-                    }
-                    continue;
+                    landed = state.Grounded && state.Position.x >= clearX;
+                    if (!landed) continue;
                 }
 
-                // Count how long the landing spot keeps the runner on its feet.
-                int runway = i - landedAt;
-                if (!state.Grounded)
+                // Count how long the landing spot offers solid footing to jump from again. A
+                // landing just short of a platform's start gets its footing a step later.
+                if (state.Footing)
                 {
-                    // Ran off the end of a short platform: fine if there was time to jump again.
+                    runway++;
+                    if (runway >= runwayCap)
+                    {
+                        return new Trial { Outcome = Outcome.Safe, Step = takeoffStep + i, Runway = runway };
+                    }
+                }
+                else if (runway > 0 || !state.Grounded)
+                {
+                    // Footing ran out (end of a short platform): fine if there was time to jump.
                     return runway >= minRunway
                         ? new Trial { Outcome = Outcome.Safe, Step = takeoffStep + i, Runway = runway }
                         : new Trial { Outcome = Outcome.Fell, Step = takeoffStep + i };
-                }
-                if (runway >= runwayCap)
-                {
-                    return new Trial { Outcome = Outcome.Safe, Step = takeoffStep + i, Runway = runway };
                 }
             }
 
@@ -457,8 +495,11 @@ namespace Run.AI
             float bottom = p.y - halfH;
             float top = p.y + halfH;
 
-            // Horizontal: stop against the first wall face in the way.
-            float x = p.x + runSpeed * dt;
+            // Horizontal: the scroll line moves at run speed, and the runner sprints to close any
+            // gap behind it. Stop against the first wall face in the way.
+            float lag = state.Lag;
+            float catchUp = lag > Model.CatchUpDeadzone ? Mathf.Min(lag * Model.CatchUpGain, Model.MaxCatchUp) : 0f;
+            float x = p.x + (runSpeed + catchUp) * dt;
             bool blocked = false;
             foreach (Rect solid in _solids)
             {
@@ -471,32 +512,45 @@ namespace Run.AI
                 }
             }
 
-            // Vertical: land on the highest floor crossed, or bump the lowest ceiling.
+            // Vertical: land on the highest floor crossed, or bump the lowest ceiling. Staying on
+            // a floor uses the ground-check width; landing on one needs the centre nearly over it.
             float y = p.y + velocityY * dt;
             bool grounded = false;
-            foreach (Rect solid in _solids)
+            bool footing = false;
+            if (velocityY <= 0f)
             {
-                if (solid.xMax <= x - halfW || solid.xMin >= x + halfW) continue;
-                if (velocityY <= 0f)
+                float support = state.Grounded ? halfW : LandingHalfWidth;
+                foreach (Rect solid in _solids)
                 {
+                    if (solid.xMax <= x - support || solid.xMin >= x + support) continue;
                     if (bottom >= solid.yMax - Skin && y - halfH < solid.yMax)
                     {
                         y = solid.yMax + halfH;
                         velocityY = 0f;
                         grounded = true;
+                        footing |= x >= solid.xMin && x <= solid.xMax;
                     }
                 }
-                else if (top <= solid.yMin + Skin && y + halfH > solid.yMin)
+            }
+            else
+            {
+                foreach (Rect solid in _solids)
                 {
-                    y = solid.yMin - halfH;
-                    velocityY = 0f;
+                    if (solid.xMax <= x - halfW || solid.xMin >= x + halfW) continue;
+                    if (top <= solid.yMin + Skin && y + halfH > solid.yMin)
+                    {
+                        y = solid.yMin - halfH;
+                        velocityY = 0f;
+                    }
                 }
             }
 
             state.Position = new Vector2(x, y);
             state.VelocityY = velocityY;
             state.Grounded = grounded;
+            state.Footing = footing;
             state.AirTime = grounded ? 0f : state.AirTime + dt;
+            state.Lag = lag + runSpeed * dt - (x - p.x);
 
             // Hazards use the full body plus a margin, since touching one costs a heart.
             float margin = HazardMargin;
