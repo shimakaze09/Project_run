@@ -30,6 +30,12 @@ namespace Run.UI
         [SerializeField, Min(0.01f)] private float _coinPopupDuration = 0.7f;
         private RectTransform _progressFill;
         private GameManager _game;
+        private bool _displayedEnvironment;
+
+        // In Environment mode the person plays the level, not the runner: the prompts and the
+        // record shown change, and the last-run bar (a runner target) is hidden.
+        private bool EnvironmentMode => _game != null &&
+            (_game.State == GameState.Ready ? GameModeSettings.IsEnvironment : _game.RunMode == GameMode.Environment);
 
         // Power-Up State
         private PowerUpType _activePowerUp = PowerUpType.None;
@@ -65,12 +71,22 @@ namespace Run.UI
         {
             PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
             PowerUpEvents.OnPowerUpExpired += OnPowerUpExpired;
+            GameModeSettings.Changed += OnGameModeChanged;
         }
 
         private void OnDisable()
         {
             PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
             PowerUpEvents.OnPowerUpExpired -= OnPowerUpExpired;
+            GameModeSettings.Changed -= OnGameModeChanged;
+        }
+
+        private void OnGameModeChanged(GameMode mode)
+        {
+            // The mode can only change on the Ready screen; refresh its prompt and labels.
+            if (_game == null || _game.State != GameState.Ready) return;
+            OnStateChanged(_game.State);
+            OnDistanceChanged(_game.Distance);
         }
 
         private void OnDestroy()
@@ -96,10 +112,19 @@ namespace Run.UI
             // BestScore only actually changes once, at Game Over - reformatting this label on
             // every distance tick (score changes far more often) was a wasted string alloc and
             // text-mesh rebuild multiple times a second for no visible difference.
-            if (_bestLabel != null && _game != null && _game.BestScore != _displayedBest)
+            if (_bestLabel == null || _game == null)
             {
-                _displayedBest = _game.BestScore;
-                _bestLabel.text = $"BEST  {_displayedBest}";
+                return;
+            }
+
+            bool environment = EnvironmentMode;
+            int best = environment ? _game.EnvironmentBestStop : _game.BestScore;
+            if (best != _displayedBest || environment != _displayedEnvironment)
+            {
+                _displayedBest = best;
+                _displayedEnvironment = environment;
+                _bestLabel.text = !environment ? $"BEST  {best}"
+                    : best > 0 ? $"FASTEST STOP  {best}" : "FASTEST STOP  -";
             }
         }
 
@@ -120,12 +145,13 @@ namespace Run.UI
         private void OnDistanceChanged(float distance)
         {
             float progress = _game.LastRunProgress;
+            bool showBar = _game.LastRunDistance > 0f && !EnvironmentMode;
             _progressFill.anchorMax = new Vector2(progress, 1f);
-            _barComplete = _game.LastRunDistance > 0f && progress >= 1f;
+            _barComplete = showBar && progress >= 1f;
             if (!_barComplete)
             {
                 _fadeTime = 0f;
-                _barGroup.alpha = _game.LastRunDistance > 0f ? 1f : 0f;
+                _barGroup.alpha = showBar ? 1f : 0f;
             }
         }
 
@@ -210,7 +236,9 @@ namespace Run.UI
             switch (state)
             {
                 case GameState.Ready:
-                    _centerLabel.text = "TAP / SPACE TO START";
+                    _centerLabel.text = EnvironmentMode
+                        ? "TAP / SPACE TO START\nYOU ARE THE LEVEL: STOP THE RUNNER"
+                        : "TAP / SPACE TO START";
                     _centerLabel.enabled = true;
                     OnPowerUpExpired(PowerUpType.None);
                     break;
@@ -220,7 +248,11 @@ namespace Run.UI
                     break;
 
                 case GameState.GameOver:
-                    _centerLabel.text = "GAME OVER\nTAP / SPACE TO RESTART";
+                    _centerLabel.text = EnvironmentMode
+                        ? $"RUNNER STOPPED AT {_game.Score} m\n" +
+                          (_game.IsNewEnvironmentBest ? "NEW FASTEST STOP!" : $"FASTEST STOP {_game.EnvironmentBestStop} m") +
+                          "\nTAP / SPACE TO RESTART"
+                        : "GAME OVER\nTAP / SPACE TO RESTART";
                     _centerLabel.enabled = true;
                     OnPowerUpExpired(PowerUpType.None);
                     break;

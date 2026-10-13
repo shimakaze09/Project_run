@@ -206,23 +206,9 @@ MonoBehaviour:
   _leadDistance: 3
   _fixedY: 1
   _smoothTime: 0.15
---- !u!114 &189452108
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 189452102}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e4bc23e54f8a48aa9a9fbf8b81ac8da2, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::Run.CameraRig.CameraShake
-  _health: {fileID: 0}
-  _heavyDamageThreshold: 1
-  _intensity: 0.12
-  _duration: 0.22
-  _decayRate: 2
+  _environmentLeadDistance: 8
+  _environmentOrthographicSize: 7
+  _environmentFixedY: 2.2
 --- !u!20 &189452104
 Camera:
   m_ObjectHideFlags: 0
@@ -341,6 +327,23 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &189452108
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 189452102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4bc23e54f8a48aa9a9fbf8b81ac8da2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.CameraRig.CameraShake
+  _health: {fileID: 0}
+  _heavyDamageThreshold: 1
+  _intensity: 0.12
+  _duration: 0.22
+  _decayRate: 2
 --- !u!1 &239881974
 GameObject:
   m_ObjectHideFlags: 0
@@ -1190,6 +1193,50 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &1045159800
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1045159802}
+  - component: {fileID: 1045159801}
+  m_Layer: 0
+  m_Name: Environment HUD
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1045159801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1045159800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 884794ae71ea9a24e8be9fb3e74d664a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.UI.EnvironmentHud
+--- !u!4 &1045159802
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1045159800}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1137169441
 GameObject:
   m_ObjectHideFlags: 0
@@ -1282,6 +1329,50 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &1263001538
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1263001540}
+  - component: {fileID: 1263001539}
+  m_Layer: 0
+  m_Name: Mode Menu
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1263001539
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1263001538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 681a70efd8e149e48bbf0fa2691653b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.UI.ModeMenu
+--- !u!4 &1263001540
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1263001538}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1375936034
 GameObject:
   m_ObjectHideFlags: 0
@@ -1771,6 +1862,7 @@ GameObject:
   - component: {fileID: 1760246379}
   - component: {fileID: 1760246378}
   - component: {fileID: 1760246383}
+  - component: {fileID: 1760246384}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1916,6 +2008,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Run.Player.PlayerHealth
   _maxHearts: 3
+--- !u!114 &1760246384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1760246377}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27f131502b7721049a84e23aee7fc620, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.AI.RunnerAI
+  _easy:
+    ReactionTime: 0.45
+    TimingJitter: 0.04
+    MistakeChance: 0.08
+    MistakeSize: 0.1
+  _normal:
+    ReactionTime: 0.3
+    TimingJitter: 0.025
+    MistakeChance: 0.03
+    MistakeSize: 0.08
+  _hard:
+    ReactionTime: 0.18
+    TimingJitter: 0.01
+    MistakeChance: 0.01
+    MistakeSize: 0.06
+  _lookAhead: 1.2
+  _replanEverySteps: 8
+  _seed: 0
+  _drawPlan: 1
+  _logDecisions: 0
 --- !u!1 &1766374058
 GameObject:
   m_ObjectHideFlags: 0
@@ -2179,6 +2303,68 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &2016711018
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2016711020}
+  - component: {fileID: 2016711019}
+  m_Layer: 0
+  m_Name: Environment Player
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2016711019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2016711018}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca83fbe1fa0bb4a449ca8d80d455456d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.EnvironmentMode.EnvironmentPlayer
+  _maxEnergy: 100
+  _startEnergy: 40
+  _energyPerSecond: 9
+  _energyPerHit: 15
+  _cards:
+  - Kind: 0
+    Label: CRATE
+    Cost: 20
+  - Kind: 1
+    Label: SPIKES
+    Cost: 30
+  - Kind: 2
+    Label: DRONE
+    Cost: 45
+  _armDelay: 0.4
+  _reactionMargin: 0.25
+  _minTrapGap: 1
+  _maxTrapsPerChunk: 2
+--- !u!4 &2016711020
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2016711018}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2026587099
 GameObject:
   m_ObjectHideFlags: 0
@@ -2528,3 +2714,6 @@ SceneRoots:
   - {fileID: 1766374061}
   - {fileID: 469656183}
   - {fileID: 1583463262}
+  - {fileID: 2016711020}
+  - {fileID: 1045159802}
+  - {fileID: 1263001540}

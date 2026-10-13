@@ -34,11 +34,14 @@ namespace Run.EditorTools
             float last = PlayerPrefs.GetFloat(keys[0]);
             int coins = PlayerPrefs.GetInt(keys[1]);
             int best = PlayerPrefs.GetInt(keys[2]);
+            // These checks cover Runner-mode rules (Environment mode keeps its own records).
+            GameMode mode = GameModeSettings.Current;
             var root = new GameObject("Sprint One Checks");
             root.SetActive(false);
             var result = new StringBuilder();
             try
             {
+                GameModeSettings.Set(GameMode.Runner);
                 foreach (string key in keys) PlayerPrefs.DeleteKey(key);
                 var gm = root.AddComponent<GameManager>();
                 Call(gm, "Awake");
@@ -130,6 +133,7 @@ namespace Run.EditorTools
                 if (exists[0]) PlayerPrefs.SetFloat(keys[0], last); else PlayerPrefs.DeleteKey(keys[0]);
                 if (exists[1]) PlayerPrefs.SetInt(keys[1], coins); else PlayerPrefs.DeleteKey(keys[1]);
                 if (exists[2]) PlayerPrefs.SetInt(keys[2], best); else PlayerPrefs.DeleteKey(keys[2]);
+                GameModeSettings.Set(mode);
                 PlayerPrefs.Save();
             }
         }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Run.Collectibles;
 using Run.Hazards;
@@ -17,8 +18,19 @@ namespace Run.Generation
         private Coin[] _coins;
         private PatrolEnemy[] _enemies;
         private Vector3[] _enemyPositions;
+        private readonly List<IChunkAttachment> _attachments = new List<IChunkAttachment>();
         public LevelChunk Source { get; set; }
         public float EndX => transform.position.x + Width;
+
+        /// <summary>How many runtime attachments (e.g. placed traps) this chunk carries.</summary>
+        public int AttachmentCount => _attachments.Count;
+
+        public void Attach(IChunkAttachment attachment)
+        {
+            if (attachment != null && !_attachments.Contains(attachment)) _attachments.Add(attachment);
+        }
+
+        public void Detach(IChunkAttachment attachment) => _attachments.Remove(attachment);
 
         public void Place(float x)
         {
@@ -49,11 +61,15 @@ namespace Run.Generation
             transform.position += new Vector3(dx, 0f, 0f);
             // Coin bob origins are local to this root; only enemy bounds are world-space.
             foreach (var enemy in _enemies) enemy.OnWorldShift(dx);
+            foreach (var attachment in _attachments) attachment.OnWorldShift(dx);
         }
 
         public void Recycle()
         {
             foreach (var coin in _coins) coin.RestoreBobOrigin();
+            // Iterate a copy: attachments usually detach themselves while cleaning up.
+            foreach (var attachment in _attachments.ToArray()) attachment.OnChunkRecycled();
+            _attachments.Clear();
             gameObject.SetActive(false);
         }
     }

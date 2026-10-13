@@ -6,9 +6,11 @@ using UnityEngine.EventSystems;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.UI;
 #endif
+using Run.AI;
 using Run.CameraRig;
 using Run.Common;
 using Run.Core;
+using Run.EnvironmentMode;
 using Run.Generation;
 using Run.Player;
 using Run.UI;
@@ -147,7 +149,47 @@ namespace Run.EditorTools
                 new GameObject("Difficulty Menu").AddComponent<DifficultyMenu>();
             }
 
+            EnsureEnvironmentModeObjects();
             EnsureEventSystem();
+        }
+
+        /// <summary>
+        /// Adds just the Environment-mode pieces to an existing scene, without the rest of Build
+        /// Scene (which also re-bakes level artwork). Safe to run more than once.
+        /// </summary>
+        [MenuItem("Tools/Endless Runner/Add Environment Mode")]
+        public static void AddEnvironmentMode()
+        {
+            EnsureEnvironmentModeObjects();
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("[RunnerSetup] Environment mode ready: pick PLAY AS > ENVIRONMENT on the Ready screen.");
+        }
+
+        private static void EnsureEnvironmentModeObjects()
+        {
+            // The computer runner rides on the existing player and stays idle in Runner mode.
+            var player = GameObject.FindGameObjectWithTag(PlayerTag);
+            if (player != null)
+            {
+                GetOrAdd<RunnerAI>(player);
+            }
+
+            if (Object.FindAnyObjectByType<EnvironmentPlayer>() == null)
+            {
+                new GameObject("Environment Player").AddComponent<EnvironmentPlayer>();
+            }
+
+            if (Object.FindAnyObjectByType<EnvironmentHud>() == null)
+            {
+                new GameObject("Environment HUD").AddComponent<EnvironmentHud>();
+            }
+
+            if (Object.FindAnyObjectByType<ModeMenu>() == null)
+            {
+                new GameObject("Mode Menu").AddComponent<ModeMenu>();
+            }
         }
 
         // UI buttons need an EventSystem in the scene to receive clicks; the project
