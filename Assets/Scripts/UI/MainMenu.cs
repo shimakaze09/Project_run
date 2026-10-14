@@ -29,6 +29,10 @@ namespace Run.UI
         private static readonly Color ButtonBg = new Color(0.1f, 0.15f, 0.23f, 1f);
         private static readonly Color Mint = new Color(0.43f, 0.94f, 0.78f);
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
+        // Matches VisualArtSetup's Gold - reused here only for the Settings button, so the
+        // title-screen row reads as Play/Settings/Quit at a glance the way the reference art's
+        // Play/Options/Quit row does, without introducing a new accent color to the game.
+        private static readonly Color Gold = new Color(1f, 0.8f, 0.3f);
 
         private static readonly GameMode[] ModeOptions = { GameMode.Runner, GameMode.Environment };
         private static readonly string[] ModeLabels = { "RUNNER", "ENVIRONMENT" };
@@ -207,50 +211,23 @@ namespace Run.UI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            // A soft vignette, not a solid fill - unlike the old in-scene overlay this replaced,
-            // the background here is the scenery behind the camera (see MainMenuSceneSetup), so
-            // it should read through everywhere except right behind the card text.
-            var scrim = new GameObject("Scrim", typeof(Image)).GetComponent<Image>();
-            scrim.transform.SetParent(canvas.transform, false);
-            scrim.color = new Color(Ink.r, Ink.g, Ink.b, 0.25f);
-            scrim.rectTransform.anchorMin = Vector2.zero;
-            scrim.rectTransform.anchorMax = Vector2.one;
-            scrim.rectTransform.offsetMin = scrim.rectTransform.offsetMax = Vector2.zero;
-
+            // The background is the scenery behind the camera (see MainMenuSceneSetup) showing
+            // through unobscured, like the reference's illustrated splash art - no card panel or
+            // dimming behind the title/buttons, just their own shadow/fill for legibility.
             var cardObject = new GameObject("Card Group", typeof(CanvasGroup));
             cardObject.transform.SetParent(canvas.transform, false);
             _cardGroup = cardObject.GetComponent<CanvasGroup>();
 
-            var glow = new GameObject("Card Glow", typeof(Image)).GetComponent<Image>();
-            glow.transform.SetParent(cardObject.transform, false);
-            glow.sprite = Shapes.RoundedSquare;
-            glow.type = Image.Type.Sliced;
-            glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
-            glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            glow.rectTransform.sizeDelta = new Vector2(464f, 524f);
+            CreateLabel(cardObject.transform, "Title", "ENDLESS RUNNER", new Vector2(0f, 320f), new Vector2(1200f, 120f),
+                88, Mint, bold: true, shadow: true);
 
-            var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
-            card.transform.SetParent(cardObject.transform, false);
-            card.sprite = Shapes.RoundedSquare;
-            card.type = Image.Type.Sliced;
-            card.color = Panel;
-            card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            card.rectTransform.sizeDelta = new Vector2(440f, 500f);
-
-            CreateLabel(card.transform, "Title", "ENDLESS RUNNER", new Vector2(0f, 198f), new Vector2(400f, 80f),
-                48, Mint, bold: true, shadow: true);
-
-            var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
-            divider.transform.SetParent(card.transform, false);
-            divider.sprite = Shapes.Rectangle;
-            divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
-            divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            divider.rectTransform.sizeDelta = new Vector2(360f, 3f);
-            divider.rectTransform.anchoredPosition = new Vector2(0f, 136f);
-
-            _playButtonObject = CreateButton(card.transform, "Play Button", "PLAY GAME", new Vector2(0f, 62f), Mint, Ink, OpenModeChoice).gameObject;
-            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, -38f), ButtonBg, Color.white, OpenSettings).gameObject;
-            CreateButton(card.transform, "Quit Button", "QUIT GAME", new Vector2(0f, -138f), ButtonBg, Danger, QuitGame);
+            // A row of pill buttons along the bottom, matching the reference layout, instead of
+            // the old stacked card - one per option the game actually has (no Collection-style
+            // extras). Color-coded the same way the reference's row is: a bright primary action,
+            // then a secondary, then danger-red for Quit.
+            _playButtonObject = CreateButton(cardObject.transform, "Play Button", "PLAY", new Vector2(-340f, -420f), Mint, Ink, OpenModeChoice).gameObject;
+            _settingsButtonObject = CreateButton(cardObject.transform, "Settings Button", "SETTINGS", new Vector2(0f, -420f), Gold, Ink, OpenSettings).gameObject;
+            CreateButton(cardObject.transform, "Quit Button", "QUIT", new Vector2(340f, -420f), Danger, Ink, QuitGame);
 
             SetCardVisible(true);
 
