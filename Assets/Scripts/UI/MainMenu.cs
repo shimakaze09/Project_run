@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Run.Common;
+using Run.Core;
 
 namespace Run.UI
 {
@@ -29,13 +30,22 @@ namespace Run.UI
         private static readonly Color Mint = new Color(0.43f, 0.94f, 0.78f);
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
 
+        private static readonly GameMode[] ModeOptions = { GameMode.Runner, GameMode.Environment };
+        private static readonly string[] ModeLabels = { "RUNNER", "ENVIRONMENT" };
+
         private SettingsMenu _settingsMenu;
-        // Only the card (title/buttons) hides while Settings is open, matching how PauseMenu
-        // swaps its card for SettingsMenu's - the background scenery stays up throughout.
+        // Only the card (title/buttons) hides while Settings/mode choice is open, matching how
+        // PauseMenu swaps its card for SettingsMenu's - the background scenery stays up throughout.
         private CanvasGroup _cardGroup;
+        private CanvasGroup _modeCardGroup;
         private bool _showingSettings;
+        private bool _showingModeChoice;
         private GameObject _playButtonObject;
         private GameObject _settingsButtonObject;
+        private readonly Image[] _modeButtons = new Image[ModeOptions.Length];
+        private readonly GameObject[] _modeButtonObjects = new GameObject[ModeOptions.Length];
+        private int _modeHoveredIndex = -1;
+        private int _modeFocusedIndex = -1;
 
         private void Awake()
         {
@@ -68,9 +78,16 @@ namespace Run.UI
                 ActivateSelected();
             }
 
-            if (_showingSettings && RunInput.PausePressed())
+            if (RunInput.PausePressed())
             {
-                CloseSettings();
+                if (_showingSettings)
+                {
+                    CloseSettings();
+                }
+                else if (_showingModeChoice)
+                {
+                    CloseModeChoice();
+                }
             }
         }
 
@@ -83,9 +100,54 @@ namespace Run.UI
             }
         }
 
-        private void PlayGame()
+        private void OpenModeChoice()
         {
+            _showingModeChoice = true;
+            SetCardVisible(false);
+            RefreshModeSelection();
+            SetModeCardVisible(true);
+
+            int index = System.Array.IndexOf(ModeOptions, GameModeSettings.Current);
+            EventSystem.current?.SetSelectedGameObject(index >= 0 ? _modeButtonObjects[index] : _modeButtonObjects[0]);
+        }
+
+        private void CloseModeChoice()
+        {
+            _showingModeChoice = false;
+            SetModeCardVisible(false);
+            SetCardVisible(true);
+            EventSystem.current?.SetSelectedGameObject(_playButtonObject);
+        }
+
+        private void ChooseMode(GameMode mode)
+        {
+            GameModeSettings.Set(mode);
             SceneManager.LoadScene(GameplaySceneName);
+        }
+
+        private void SetModeHovered(int index, bool hovered)
+        {
+            if (hovered) _modeHoveredIndex = index;
+            else if (_modeHoveredIndex == index) _modeHoveredIndex = -1;
+            RefreshModeSelection();
+        }
+
+        private void SetModeFocused(int index, bool focused)
+        {
+            if (focused) _modeFocusedIndex = index;
+            else if (_modeFocusedIndex == index) _modeFocusedIndex = -1;
+            RefreshModeSelection();
+        }
+
+        private void RefreshModeSelection()
+        {
+            for (int i = 0; i < _modeButtons.Length; i++)
+            {
+                bool highlighted = i == _modeHoveredIndex || i == _modeFocusedIndex;
+                _modeButtons[i].color = ModeOptions[i] == GameModeSettings.Current
+                    ? Mint
+                    : highlighted ? Color.Lerp(ButtonBg, Color.white, 0.4f) : ButtonBg;
+            }
         }
 
         private void OpenSettings()
@@ -118,6 +180,13 @@ namespace Run.UI
             _cardGroup.alpha = visible ? 1f : 0f;
             _cardGroup.blocksRaycasts = visible;
             _cardGroup.interactable = visible;
+        }
+
+        private void SetModeCardVisible(bool visible)
+        {
+            _modeCardGroup.alpha = visible ? 1f : 0f;
+            _modeCardGroup.blocksRaycasts = visible;
+            _modeCardGroup.interactable = visible;
         }
 
         private void BuildCanvas()
@@ -179,11 +248,98 @@ namespace Run.UI
             divider.rectTransform.sizeDelta = new Vector2(360f, 3f);
             divider.rectTransform.anchoredPosition = new Vector2(0f, 136f);
 
-            _playButtonObject = CreateButton(card.transform, "Play Button", "PLAY GAME", new Vector2(0f, 62f), Mint, Ink, PlayGame).gameObject;
+            _playButtonObject = CreateButton(card.transform, "Play Button", "PLAY GAME", new Vector2(0f, 62f), Mint, Ink, OpenModeChoice).gameObject;
             _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, -38f), ButtonBg, Color.white, OpenSettings).gameObject;
             CreateButton(card.transform, "Quit Button", "QUIT GAME", new Vector2(0f, -138f), ButtonBg, Danger, QuitGame);
 
             SetCardVisible(true);
+
+            BuildModeCard(canvas.transform);
+        }
+
+        /// <summary>
+        /// The "CHOOSE MODE" panel Play Game swaps in: Runner/Environment, matching the current
+        /// selection in <see cref="GameModeSettings"/> the same way <see cref="DifficultyMenu"/>
+        /// highlights the active difficulty on the Ready screen. Picking either sets the mode and
+        /// goes straight into the gameplay scene - no separate confirm step needed.
+        /// </summary>
+        private void BuildModeCard(Transform parent)
+        {
+            var modeCardObject = new GameObject("Mode Card Group", typeof(CanvasGroup));
+            modeCardObject.transform.SetParent(parent, false);
+            _modeCardGroup = modeCardObject.GetComponent<CanvasGroup>();
+
+            var glow = new GameObject("Card Glow", typeof(Image)).GetComponent<Image>();
+            glow.transform.SetParent(modeCardObject.transform, false);
+            glow.sprite = Shapes.RoundedSquare;
+            glow.type = Image.Type.Sliced;
+            glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
+            glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            glow.rectTransform.sizeDelta = new Vector2(464f, 364f);
+
+            var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
+            card.transform.SetParent(modeCardObject.transform, false);
+            card.sprite = Shapes.RoundedSquare;
+            card.type = Image.Type.Sliced;
+            card.color = Panel;
+            card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            card.rectTransform.sizeDelta = new Vector2(440f, 340f);
+
+            CreateLabel(card.transform, "Title", "CHOOSE MODE", new Vector2(0f, 128f), new Vector2(400f, 60f),
+                36, Mint, bold: true, shadow: true);
+
+            var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
+            divider.transform.SetParent(card.transform, false);
+            divider.sprite = Shapes.Rectangle;
+            divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
+            divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            divider.rectTransform.sizeDelta = new Vector2(360f, 3f);
+            divider.rectTransform.anchoredPosition = new Vector2(0f, 76f);
+
+            for (int i = 0; i < ModeOptions.Length; i++)
+            {
+                GameMode mode = ModeOptions[i];
+                var button = CreateModeButton(card.transform, ModeLabels[i], new Vector2(0f, 20f - i * 88f), i, () => ChooseMode(mode));
+                _modeButtons[i] = button.GetComponent<Image>();
+                _modeButtonObjects[i] = button.gameObject;
+            }
+
+            CreateButton(card.transform, "Mode Back Button", "BACK", new Vector2(0f, -128f), ButtonBg, Color.white, CloseModeChoice);
+
+            SetModeCardVisible(false);
+        }
+
+        private Button CreateModeButton(Transform parent, string text, Vector2 position, int index, UnityAction onClick)
+        {
+            var buttonObject = new GameObject(text + " Button", typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+
+            var image = buttonObject.GetComponent<Image>();
+            image.sprite = Shapes.RoundedSquare;
+            image.type = Image.Type.Sliced;
+            image.color = ButtonBg;
+
+            var rect = image.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(320f, 64f);
+            rect.anchoredPosition = position;
+
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(onClick);
+            // Color is driven entirely by RefreshModeSelection (current mode OR hover/focus,
+            // whichever), not Unity's built-in transition - see ButtonHighlight's comment on
+            // PauseMenu/this file's own Play/Settings/Quit buttons for why.
+            button.transition = Selectable.Transition.None;
+
+            var relay = buttonObject.AddComponent<ModeButtonRelay>();
+            relay.Menu = this;
+            relay.Index = index;
+
+            CreateLabel(buttonObject.transform, "Label", text, Vector2.zero, new Vector2(300f, 50f),
+                26, Color.white, bold: true);
+
+            return button;
         }
 
         private Text CreateLabel(Transform parent, string name, string text, Vector2 position, Vector2 size,
@@ -268,6 +424,18 @@ namespace Run.UI
             public void OnDeselect(BaseEventData eventData) { _focused = false; Refresh(); }
 
             private void Refresh() => Image.color = (_hovered || _focused) ? HighlightColor : NormalColor;
+        }
+
+        /// <summary>Forwards pointer enter/exit and keyboard focus from a mode button back to the menu. Mirrors DifficultyMenu's InteractionRelay.</summary>
+        private sealed class ModeButtonRelay : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler
+        {
+            public MainMenu Menu;
+            public int Index;
+
+            public void OnPointerEnter(PointerEventData eventData) => Menu.SetModeHovered(Index, true);
+            public void OnPointerExit(PointerEventData eventData) => Menu.SetModeHovered(Index, false);
+            public void OnSelect(BaseEventData eventData) => Menu.SetModeFocused(Index, true);
+            public void OnDeselect(BaseEventData eventData) => Menu.SetModeFocused(Index, false);
         }
     }
 }
