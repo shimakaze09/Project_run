@@ -149,6 +149,11 @@ namespace Run.EditorTools
                 new GameObject("Difficulty Menu").AddComponent<DifficultyMenu>();
             }
 
+            if (Object.FindFirstObjectByType<MainMenu>() == null)
+            {
+                new GameObject("Main Menu").AddComponent<MainMenu>();
+            }
+
             EnsureEnvironmentModeObjects();
             EnsureEventSystem();
         }
