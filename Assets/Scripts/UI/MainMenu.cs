@@ -1,33 +1,26 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Run.Common;
 
 namespace Run.UI
 {
     /// <summary>
-    /// The title screen: PLAY GAME / SETTINGS / QUIT GAME, shown the first time the scene loads
-    /// in a given session and covering everything else (HUD, Difficulty/Mode pickers) until
-    /// dismissed.
+    /// The title screen: PLAY GAME / SETTINGS / QUIT GAME. Lives in its own scene
+    /// (<see cref="GameplaySceneName"/> is loaded separately), so unlike an in-scene overlay it
+    /// never runs alongside - or shows through onto - the gameplay scene underneath.
     /// </summary>
     /// <remarks>
-    /// Deliberately does not touch <see cref="Run.Core.GameManager"/>'s state machine — the game
-    /// is already sitting in <see cref="Run.Core.GameState.Ready"/> underneath, which is exactly
-    /// the Difficulty/Mode picker screen "Play Game" should reveal, so this is just an opaque
-    /// curtain in front of it rather than a fourth game state. <c>_dismissedThisSession</c> is a
-    /// process-lifetime static (not PlayerPrefs), so the title screen greets the player once per
-    /// launch and every later <see cref="Run.Core.GameManager.Restart"/> (a death retry) skips
-    /// straight back to the Ready screen instead of re-showing it. <see cref="DefaultExecutionOrderAttribute"/>
-    /// makes sure this component's <see cref="Start"/> runs after <see cref="DifficultyMenu"/>'s,
-    /// so its own default keyboard selection (the Play button) wins the race for
-    /// <see cref="EventSystem.currentSelectedGameObject"/> instead of being overwritten.
+    /// Pressing Play loads the gameplay scene outright (<see cref="SceneManager.LoadScene(string)"/>),
+    /// which destroys this scene and everything in it - there's no state to reset for next time,
+    /// unlike the old in-scene-overlay version this replaced.
     /// </remarks>
     [DisallowMultipleComponent]
-    [DefaultExecutionOrder(100)]
     public sealed class MainMenu : MonoBehaviour
     {
-        private static bool _dismissedThisSession;
+        private const string GameplaySceneName = "SampleScene";
 
         // Matches the palette used by PauseMenu/SettingsMenu/DifficultyMenu/HudController/VisualArtSetup.
         private static readonly Color Ink = new Color(0.045f, 0.1f, 0.17f);
@@ -37,10 +30,8 @@ namespace Run.UI
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
 
         private SettingsMenu _settingsMenu;
-        private CanvasGroup _group;
-        // Only the card (title/buttons) hides while Settings is open - the opaque backdrop
-        // stays up so nothing underneath (HUD, Difficulty/Mode pickers) peeks through, matching
-        // how PauseMenu swaps its card for SettingsMenu's.
+        // Only the card (title/buttons) hides while Settings is open, matching how PauseMenu
+        // swaps its card for SettingsMenu's - the background scenery stays up throughout.
         private CanvasGroup _cardGroup;
         private bool _showingSettings;
         private GameObject _playButtonObject;
@@ -56,13 +47,7 @@ namespace Run.UI
 
         private void Start()
         {
-            bool visible = !_dismissedThisSession;
-            SetVisible(visible);
-
-            if (visible)
-            {
-                EventSystem.current?.SetSelectedGameObject(_playButtonObject);
-            }
+            EventSystem.current?.SetSelectedGameObject(_playButtonObject);
         }
 
         private void OnDestroy()
@@ -75,11 +60,6 @@ namespace Run.UI
 
         private void Update()
         {
-            if (_group.alpha <= 0f)
-            {
-                return;
-            }
-
             // Handled directly rather than trusting the EventSystem's own Submit action
             // end-to-end - one less link in the chain between pressing Enter and something
             // actually happening. Mirrors PauseMenu/DifficultyMenu.
@@ -105,8 +85,7 @@ namespace Run.UI
 
         private void PlayGame()
         {
-            _dismissedThisSession = true;
-            SetVisible(false);
+            SceneManager.LoadScene(GameplaySceneName);
         }
 
         private void OpenSettings()
@@ -134,13 +113,6 @@ namespace Run.UI
 #endif
         }
 
-        private void SetVisible(bool visible)
-        {
-            _group.alpha = visible ? 1f : 0f;
-            _group.blocksRaycasts = visible;
-            _group.interactable = visible;
-        }
-
         private void SetCardVisible(bool visible)
         {
             _cardGroup.alpha = visible ? 1f : 0f;
@@ -155,31 +127,29 @@ namespace Run.UI
 
             var canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            // Same order as PauseMenu/SettingsMenu (still above DifficultyMenu/ModeMenu's 50 and
-            // the HUD's default 0): this component's own SettingsMenu canvas is created right
-            // after this one in Awake, so at equal sortingOrder it wins the sibling-order
-            // tiebreak and draws on top, exactly like PauseMenu's card does.
+            // Same order as PauseMenu/SettingsMenu: this component's own SettingsMenu canvas is
+            // created right after this one in Awake, so at equal sortingOrder it wins the
+            // sibling-order tiebreak and draws on top, exactly like PauseMenu's card does. An
+            // overlay canvas always draws above the scenery behind it (a world-space camera
+            // layer) regardless of this number.
             canvas.sortingOrder = 100;
 
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            var groupObject = new GameObject("Group", typeof(CanvasGroup));
-            groupObject.transform.SetParent(canvas.transform, false);
-            _group = groupObject.GetComponent<CanvasGroup>();
-
-            // Fully opaque - unlike the translucent Pause/Settings dim, this is a title screen,
-            // not an overlay, so nothing behind it should show through.
-            var backdrop = new GameObject("Backdrop", typeof(Image)).GetComponent<Image>();
-            backdrop.transform.SetParent(groupObject.transform, false);
-            backdrop.color = Ink;
-            backdrop.rectTransform.anchorMin = Vector2.zero;
-            backdrop.rectTransform.anchorMax = Vector2.one;
-            backdrop.rectTransform.offsetMin = backdrop.rectTransform.offsetMax = Vector2.zero;
+            // A soft vignette, not a solid fill - unlike the old in-scene overlay this replaced,
+            // the background here is the scenery behind the camera (see MainMenuSceneSetup), so
+            // it should read through everywhere except right behind the card text.
+            var scrim = new GameObject("Scrim", typeof(Image)).GetComponent<Image>();
+            scrim.transform.SetParent(canvas.transform, false);
+            scrim.color = new Color(Ink.r, Ink.g, Ink.b, 0.25f);
+            scrim.rectTransform.anchorMin = Vector2.zero;
+            scrim.rectTransform.anchorMax = Vector2.one;
+            scrim.rectTransform.offsetMin = scrim.rectTransform.offsetMax = Vector2.zero;
 
             var cardObject = new GameObject("Card Group", typeof(CanvasGroup));
-            cardObject.transform.SetParent(groupObject.transform, false);
+            cardObject.transform.SetParent(canvas.transform, false);
             _cardGroup = cardObject.GetComponent<CanvasGroup>();
 
             var glow = new GameObject("Card Glow", typeof(Image)).GetComponent<Image>();
@@ -213,7 +183,6 @@ namespace Run.UI
             _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, -38f), ButtonBg, Color.white, OpenSettings).gameObject;
             CreateButton(card.transform, "Quit Button", "QUIT GAME", new Vector2(0f, -138f), ButtonBg, Danger, QuitGame);
 
-            SetVisible(false);
             SetCardVisible(true);
         }
 
