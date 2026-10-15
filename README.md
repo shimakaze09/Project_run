@@ -18,7 +18,12 @@ editable layered sprite artwork keeps each entity readable at a glance.
 1. In Unity, run **`Tools ▸ Endless Runner ▸ Build Scene`** once. This creates the
    `Ground` layer, the camera rig, the player, the systems, and the HUD, then saves the
    scene. It is idempotent — safe to run again to repair the scene.
-2. Press **Play**. Press **Space / W / ↑ / click / tap** to start, and again to jump.
+2. Run **`Tools ▸ Endless Runner ▸ Build Main Menu Scene`** once too, if
+   `Assets/Scenes/MainMenu.unity` doesn't already exist. Also idempotent.
+3. Open **`MainMenu`** and press **Play** — that's the game's actual entry point: Play loads
+   `SampleScene` after you pick a mode. (Opening `SampleScene` directly and pressing Play still
+   works for quick iteration; it just skips the title screen.)
+4. Press **Space / W / ↑ / click / tap** to start, and again to jump.
 
 ## Controls
 
@@ -37,6 +42,39 @@ You die by touching a hazard, falling into a pit, or being left behind the camer
 > Multi/triple jump and wall-jump are intentionally left out for now to keep the
 > challenge honest. The player's `Visual` child and derived jump-reach are already in
 > place, so they can be layered back in later without reworking the core.
+
+## Menus
+
+- **Main Menu** (`Assets/Scenes/MainMenu.unity`, `UI/MainMenu`): the title screen —
+  **PLAY**, **SETTINGS**, **QUIT**. Play opens a **Choose Mode** panel (Runner / Environment,
+  matching the Ready-screen picker below) before loading `SampleScene`. It lives in its own
+  scene, not an overlay in `SampleScene`, so it never runs alongside — or shows through onto —
+  gameplay.
+- **Pause** (`UI/PauseMenu`, Escape or the Android back button during a run): **Resume /
+  Settings / Restart / Main Menu / Quit**. Main Menu reloads `MainMenu.unity`, resetting
+  `Time.timeScale` first since pausing freezes it at 0.
+- **Settings** (`UI/SettingsMenu`): one component shared by both menus above (shown/hidden by
+  whichever opened it). Master/Music/SFX volume sliders, persisted via `Core/VolumePreferences`
+  and applied live to `Audio/AudioManager`. Also has the **High Contrast** toggle below.
+
+### High Contrast Hazards
+
+An accessibility option (`Core/AccessibilityPreferences`, persisted in `PlayerPrefs`) that
+recolors hazards and standable ground to one fixed, high-contrast pair instead of the normal
+varied palette, since hazards and scenery otherwise sit close in hue/lightness for some forms
+of color blindness:
+
+- Hazards (spikes, patrol enemies, drones) → a fixed bright magenta.
+- Ground/platforms/crates → a fixed dark steel blue, with their top-edge trim picked out in a
+  lighter shade so a run of ground still reads as a surface rather than one flat block.
+- Coins keep their own gold color either way — they're a pickup, not something to tell apart
+  from a hazard.
+
+Applied at runtime per piece (`Generation/LevelChunk` for Runner mode's authored prefabs,
+`EnvironmentMode/TrapFactory` for Environment mode's traps) rather than baked by **Apply
+Twilight Art**, so toggling it takes effect immediately without needing that Editor tool.
+Runner-mode pieces already on screen repaint live; Environment-mode traps pick it up on their
+next placement.
 
 ## Difficulty
 
@@ -148,15 +186,21 @@ Scripts live under `Assets/Scripts`, namespaced `Run.*`.
 - `Core/GameManager`: run state, distance events, previous-run target, best distance,
   separate saved currency, restart.
 - `UI/HudController`: distance/best labels, unlabeled fading bar, coin count/popup.
+- `UI/MainMenu`, `UI/PauseMenu`, `UI/SettingsMenu`: the title screen, pause overlay, and the
+  shared volume/High Contrast panel they both open. See **Menus** above.
+- `Core/VolumePreferences`, `Core/AccessibilityPreferences`: small `PlayerPrefs`-backed static
+  classes, one per Settings option, each with a `Changed` event so other systems can react
+  without knowing where the choice came from.
 - `Generation/LevelGenerator`: selects, loads and pools prefab chunks in the
   **Runner Level** runtime scene. Reloading SampleScene unloads that scene too.
 - `Generation/LevelChunk`: prefab width, selection weights, safe-start flag,
-  jump requirements and pooled reset/shift behavior.
+  jump requirements, pooled reset/shift behavior, and the High Contrast Hazards repaint.
 - `Common/Shapes`: runtime player artwork. Prefab artwork is saved under
   `Assets/Art`, so all level pieces also render in Prefab Mode.
 - `Generation/PieceFactory` and `Segment` remain legacy authoring helpers;
   the runtime level loader no longer uses either.
 - `Editor/RunnerSetup`: builds/repairs the gameplay shell.
+- `Editor/MainMenuSceneSetup`: builds/repairs the `MainMenu` scene.
 - `Editor/SprintOneChecks`: repeatable deterministic acceptance checks.
 
 ### Editing levels without code
