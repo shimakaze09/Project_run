@@ -42,8 +42,6 @@ namespace Run.EditorTools
             return result.ToString();
         }
 
-        // ---- Computer runner --------------------------------------------------------------
-
         private static JumpModel Model()
         {
             // The PlayerController defaults: 3.2 high in 0.38 s, 1.7x fall, 2.2x low jump.
@@ -209,8 +207,6 @@ namespace Run.EditorTools
             result.AppendLine($"PASS drone prediction within one step ({worst:F3} units) over 8 s");
         }
 
-        // ---- Traps ------------------------------------------------------------------------
-
         private static void CheckTraps(StringBuilder result)
         {
             var root = new GameObject("Environment Trap Checks");
@@ -236,8 +232,6 @@ namespace Run.EditorTools
                 UnityEngine.Object.DestroyImmediate(root);
             }
         }
-
-        // ---- Scoring ----------------------------------------------------------------------
 
         private static void CheckScoring(StringBuilder result)
         {

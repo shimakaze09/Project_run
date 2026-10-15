@@ -137,8 +137,6 @@ namespace Run.AI
         private float[] _holdAtStep = new float[0];
         private int[] _runwayAtStep = new int[0];
 
-        // ---- World ------------------------------------------------------------------------
-
         public void ClearWorld()
         {
             _solids.Clear();
@@ -156,8 +154,6 @@ namespace Run.AI
 
         public int SolidCount => _solids.Count;
         public int HazardCount => _hazards.Count + _movers.Count;
-
-        // ---- Planning ---------------------------------------------------------------------
 
         /// <summary>Time from take-off to landing back at take-off height for a fully held jump.</summary>
         public float FullJumpAirTime
@@ -320,8 +316,6 @@ namespace Run.AI
             int steps = Mathf.CeilToInt(FullJumpAirTime / dt) * 2;
             TryJump(_path[takeoff], takeoff, runSpeed, dt, plan.HoldTime, float.NegativeInfinity, steps, points);
         }
-
-        // ---- Simulation -------------------------------------------------------------------
 
         /// <summary>
         /// Advances <paramref name="state"/> by one physics step in the current world; used by the

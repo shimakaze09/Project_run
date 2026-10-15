@@ -37,7 +37,6 @@ namespace Run.UI
         private bool EnvironmentMode => _game != null &&
             (_game.State == GameState.Ready ? GameModeSettings.IsEnvironment : _game.RunMode == GameMode.Environment);
 
-        // Power-Up State
         private PowerUpType _activePowerUp = PowerUpType.None;
         private float _powerUpTimeRemaining;
         private bool _isPowerUpActive;
@@ -270,6 +269,9 @@ namespace Run.UI
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // Matching width only (the default) leaves very little vertical room on a short/wide
+            // window; balancing both axes keeps edge-hugging UI from being pushed off-screen.
+            scaler.matchWidthOrHeight = 0.5f;
 
             var plate = new GameObject("Score Plate", typeof(Image)).GetComponent<Image>();
             plate.transform.SetParent(canvas.transform, false);
@@ -308,7 +310,6 @@ namespace Run.UI
                 align: TextAnchor.UpperLeft, size: 26);
             _coinPopup.enabled = false;
 
-            // --- Power-Up HUD Indicator (Centered below progress bar) ---
             _powerUpLabel = CreateLabel(canvas.transform, "PowerUp Label",
                 anchor: new Vector2(0.5f, 1f), position: new Vector2(0f, -120f),
                 align: TextAnchor.UpperCenter, size: 30);

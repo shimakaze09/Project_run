@@ -354,8 +354,6 @@ namespace Run.EnvironmentMode
             GameFeel.Instance?.Emit(BurstKind.Start, placement.Surface);
         }
 
-        // ---- Pooling ----------------------------------------------------------------------
-
         private PlacedTrap Take(TrapKind kind)
         {
             if (_pool.TryGetValue(kind, out var stack) && stack.Count > 0)
@@ -375,8 +373,6 @@ namespace Run.EnvironmentMode
             }
             stack.Push(trap);
         }
-
-        // ---- Visuals ----------------------------------------------------------------------
 
         private void BuildVisuals()
         {

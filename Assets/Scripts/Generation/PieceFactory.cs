@@ -56,7 +56,7 @@ namespace Run.Generation
         {
             _poolRoot = new GameObject("PiecePool").transform;
             _poolRoot.SetParent(transform, false);
-            _poolRoot.gameObject.SetActive(false);   // pooled pieces rest here, inactive
+            _poolRoot.gameObject.SetActive(false);
 
             _groundLayer = LayerMask.NameToLayer("Ground");
             if (_groundLayer < 0)
@@ -65,8 +65,6 @@ namespace Run.Generation
                                  "Build Scene once so the player can stand on generated ground.");
             }
         }
-
-        // ---- Public spawn API ------------------------------------------------------
 
         /// <summary>Spawns a solid ground block whose top surface sits at <paramref name="topY"/>.</summary>
         public GameObject SpawnGround(Transform parent, float centerX, float topY, float width, float height)
@@ -131,8 +129,6 @@ namespace Run.Generation
             piece.transform.SetParent(_poolRoot, false);
             GetStack(kind).Push(piece);
         }
-
-        // ---- Pooling ---------------------------------------------------------------
 
         private GameObject Get(PieceKind kind)
         {
@@ -224,8 +220,6 @@ namespace Run.Generation
 
             return piece;
         }
-
-        // ---- Helpers ---------------------------------------------------------------
 
         private static void AddUnitBox(GameObject piece, bool isTrigger)
         {

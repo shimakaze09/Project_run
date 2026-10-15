@@ -26,7 +26,6 @@ namespace Run.Collectibles
 
         private void Update()
         {
-            // Bobbing effect along the Y-axis
             bobTimer += Time.deltaTime * 3f;
             transform.position = new Vector3(
                 transform.position.x,
@@ -39,16 +38,11 @@ namespace Run.Collectibles
         {
             if (other.CompareTag("Player"))
             {
-                // Fire the event to notify the HUD
                 PowerUpEvents.TriggerActivated(type, duration);
-
-                // Recycle/disable the pickup
                 gameObject.SetActive(false);
             }
         }
 
-        /// <summary>
-        /// </summary>
         public void OnWorldShift(float dx)
         {
         }

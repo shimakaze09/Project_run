@@ -22,7 +22,6 @@ namespace Run.Hazards
 
         protected virtual void Reset()
         {
-            // Sensible default when the component is added in the editor.
             var collider2d = GetComponent<Collider2D>();
             if (collider2d != null)
             {

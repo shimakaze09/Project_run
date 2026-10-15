@@ -111,6 +111,9 @@ namespace Run.UI
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // Matching width only (the default) leaves very little vertical room on a short/wide
+            // window; balancing both axes keeps edge-hugging UI from being pushed off-screen.
+            scaler.matchWidthOrHeight = 0.5f;
 
             var groupObject = new GameObject("Group", typeof(RectTransform), typeof(CanvasGroup));
             groupObject.transform.SetParent(canvas.transform, false);

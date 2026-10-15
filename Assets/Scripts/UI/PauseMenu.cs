@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Run.Common;
 using Run.Core;
@@ -8,8 +9,8 @@ using Run.Core;
 namespace Run.UI
 {
     /// <summary>
-    /// Builds and drives the pause overlay: Resume / Settings / Restart / Quit, toggled by
-    /// Escape (or the Android back button, which Unity also maps to Escape).
+    /// Builds and drives the pause overlay: Resume / Settings / Restart / Main Menu / Quit,
+    /// toggled by Escape (or the Android back button, which Unity also maps to Escape).
     /// </summary>
     /// <remarks>
     /// Like <see cref="HudController"/>, the canvas is constructed in code so
@@ -25,6 +26,8 @@ namespace Run.UI
     [DisallowMultipleComponent]
     public sealed class PauseMenu : MonoBehaviour
     {
+        private const string MainMenuSceneName = "MainMenu";
+
         // Shared with the rest of the game's look (see VisualArtSetup's Ink/Mint/Gold
         // and the HudController plate/bar colors) so the pause screen reads as part
         // of the same world instead of a generic system dialog.
@@ -33,6 +36,9 @@ namespace Run.UI
         private static readonly Color ButtonBg = new Color(0.1f, 0.15f, 0.23f, 1f);
         private static readonly Color Mint = new Color(0.43f, 0.94f, 0.78f);
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
+        // Matches MainMenu's palette - Settings/Quit read the same way on both screens now
+        // (bright fill + dark text) instead of each menu inventing its own convention.
+        private static readonly Color Gold = new Color(1f, 0.8f, 0.3f);
 
         private GameManager _game;
         private SettingsMenu _settingsMenu;
@@ -175,6 +181,15 @@ namespace Run.UI
             _game?.Restart();
         }
 
+        public void GoToMainMenu()
+        {
+            _isPaused = false;
+            // Loading a new scene never resets Time.timeScale on its own - without this the
+            // Main Menu would load still frozen at 0 from the pause.
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(MainMenuSceneName);
+        }
+
         public void QuitGame()
         {
 #if UNITY_EDITOR
@@ -203,6 +218,9 @@ namespace Run.UI
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // Matching width only (the default) leaves very little vertical room on a short/wide
+            // window; balancing both axes keeps edge-hugging UI from being pushed off-screen.
+            scaler.matchWidthOrHeight = 0.5f;
 
             var panelObject = new GameObject("Panel", typeof(CanvasGroup));
             panelObject.transform.SetParent(canvas.transform, false);
@@ -225,7 +243,7 @@ namespace Run.UI
             glow.type = Image.Type.Sliced;
             glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
             glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            glow.rectTransform.sizeDelta = new Vector2(424f, 604f);
+            glow.rectTransform.sizeDelta = new Vector2(424f, 700f);
 
             var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
             card.transform.SetParent(panelObject.transform, false);
@@ -233,9 +251,9 @@ namespace Run.UI
             card.type = Image.Type.Sliced;
             card.color = Panel;
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            card.rectTransform.sizeDelta = new Vector2(400f, 580f);
+            card.rectTransform.sizeDelta = new Vector2(400f, 676f);
 
-            CreateLabel(card.transform, "Title", "PAUSED", new Vector2(0f, 228f), new Vector2(360f, 74f),
+            CreateLabel(card.transform, "Title", "PAUSED", new Vector2(0f, 276f), new Vector2(360f, 74f),
                 46, Mint, bold: true, shadow: true);
 
             var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
@@ -244,12 +262,13 @@ namespace Run.UI
             divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
             divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             divider.rectTransform.sizeDelta = new Vector2(300f, 3f);
-            divider.rectTransform.anchoredPosition = new Vector2(0f, 166f);
+            divider.rectTransform.anchoredPosition = new Vector2(0f, 214f);
 
-            _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 92f), Mint, Ink, Resume).gameObject;
-            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, -4f), ButtonBg, Color.white, OpenSettings).gameObject;
-            CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -100f), ButtonBg, Color.white, RestartRun);
-            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -196f), ButtonBg, Danger, QuitGame);
+            _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 140f), Mint, Ink, Resume).gameObject;
+            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, 44f), Gold, Ink, OpenSettings).gameObject;
+            CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -52f), ButtonBg, Color.white, RestartRun);
+            CreateButton(card.transform, "Main Menu Button", "MAIN MENU", new Vector2(0f, -148f), ButtonBg, Color.white, GoToMainMenu);
+            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -244f), Danger, Ink, QuitGame);
 
             SetPanelVisible(false);
         }

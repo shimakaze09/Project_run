@@ -82,6 +82,11 @@ namespace Run.UI
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // Matching width only (the default) leaves very little vertical room on a
+            // short/wide window - this card reaches from near the top edge (the title) to near
+            // the bottom edge (Back), so at an aspect ratio much wider than 16:9 those ends can
+            // get pushed past the actual visible area. Balancing both axes keeps it contained.
+            scaler.matchWidthOrHeight = 0.5f;
 
             var groupObject = new GameObject("Group", typeof(CanvasGroup));
             groupObject.transform.SetParent(canvas.transform, false);
@@ -133,9 +138,11 @@ namespace Run.UI
         /// <summary>One labelled, live-updating slider row: name + percentage on top, slider beneath.</summary>
         private Text CreateRow(Transform parent, string name, float centerY, float initialValue, Action<float> onChanged)
         {
-            CreateLabel(parent, name + " Name", name, new Vector2(-150f, centerY + 32f), new Vector2(200f, 32f),
+            // The card is 420 wide (edges at +-210); these boxes used to reach all the way to
+            // +-250, so the name/value labels rendered partly outside the card's own border.
+            CreateLabel(parent, name + " Name", name, new Vector2(-125f, centerY + 32f), new Vector2(150f, 32f),
                 22, Color.white, TextAnchor.MiddleLeft, bold: true);
-            var valueLabel = CreateLabel(parent, name + " Value", FormatPercent(initialValue), new Vector2(150f, centerY + 32f), new Vector2(100f, 32f),
+            var valueLabel = CreateLabel(parent, name + " Value", FormatPercent(initialValue), new Vector2(125f, centerY + 32f), new Vector2(150f, 32f),
                 22, Mint, TextAnchor.MiddleRight, bold: true);
 
             var slider = CreateSlider(parent, name + " Slider", new Vector2(0f, centerY), initialValue);
