@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -211,6 +210,10 @@ namespace Run.UI
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // See SettingsMenu's matching note - this canvas has the same shape (title near the
+            // top edge, buttons near the bottom), so it's just as exposed to edge-clipping on a
+            // short/wide window if only width is matched.
+            scaler.matchWidthOrHeight = 0.5f;
 
             BuildBackground(canvas.transform);
 
@@ -264,37 +267,34 @@ namespace Run.UI
         }
 
         /// <summary>
-        /// The "ENDLESS RUNNER" logo. TextMeshPro rather than the legacy Text the rest of this
-        /// menu uses, since a title needs tighter letter-spacing and a cleaner, bolder look than
-        /// legacy Text can give it. Stacked on two lines and shifted left/up rather than centered,
-        /// so it sits in the clear sky of the background art instead of behind the moon.
+        /// The "RUN" wordmark art, in the same spot the text title used to sit (shifted left/up
+        /// of center so it clears the moon in the background art). Loaded the same way as
+        /// <see cref="BuildBackground"/> - a plain Texture2D wrapped as a Sprite at runtime, sized
+        /// off the source art's own aspect ratio so it isn't stretched.
         /// </summary>
         private void BuildTitle(Transform parent)
         {
-            var titleObject = new GameObject("Title", typeof(RectTransform));
+            var texture = Resources.Load<Texture2D>("Art/RUN_Title");
+            if (texture == null)
+            {
+                return;
+            }
+
+            var titleObject = new GameObject("Title", typeof(Image));
             titleObject.transform.SetParent(parent, false);
+
+            var image = titleObject.GetComponent<Image>();
+            image.sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            image.raycastTarget = false;
+            image.preserveAspect = true;
+
+            const float width = 820f;
+            float height = width * texture.height / texture.width;
 
             var rect = titleObject.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(900f, 260f);
+            rect.sizeDelta = new Vector2(width, height);
             rect.anchoredPosition = new Vector2(-470f, 300f);
-
-            var title = titleObject.AddComponent<TextMeshProUGUI>();
-            title.text = "ENDLESS\nRUNNER";
-            title.fontStyle = FontStyles.Bold;
-            title.alignment = TextAlignmentOptions.Center;
-            title.fontSize = 100;
-            title.lineSpacing = -12f;
-            title.characterSpacing = 4f;
-            // A warm cream rather than Mint, so the title pops as its own focal point instead of
-            // blending into the Mint PLAY button beneath it - closer to the moon's own glow color
-            // without being the exact same gold used for the Settings button.
-            title.color = new Color(0.98f, 0.93f, 0.78f);
-            title.raycastTarget = false;
-
-            var shadow = titleObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(Ink.r, Ink.g, Ink.b, 0.85f);
-            shadow.effectDistance = new Vector2(3f, -4f);
         }
 
         /// <summary>
@@ -315,7 +315,7 @@ namespace Run.UI
             glow.type = Image.Type.Sliced;
             glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
             glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            glow.rectTransform.sizeDelta = new Vector2(464f, 364f);
+            glow.rectTransform.sizeDelta = new Vector2(464f, 484f);
 
             var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
             card.transform.SetParent(modeCardObject.transform, false);
@@ -323,9 +323,9 @@ namespace Run.UI
             card.type = Image.Type.Sliced;
             card.color = Panel;
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            card.rectTransform.sizeDelta = new Vector2(440f, 340f);
+            card.rectTransform.sizeDelta = new Vector2(440f, 460f);
 
-            CreateLabel(card.transform, "Title", "CHOOSE MODE", new Vector2(0f, 128f), new Vector2(400f, 60f),
+            CreateLabel(card.transform, "Title", "CHOOSE MODE", new Vector2(0f, 158f), new Vector2(400f, 60f),
                 36, Mint, bold: true, shadow: true);
 
             var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
@@ -334,17 +334,20 @@ namespace Run.UI
             divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
             divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             divider.rectTransform.sizeDelta = new Vector2(360f, 3f);
-            divider.rectTransform.anchoredPosition = new Vector2(0f, 76f);
+            divider.rectTransform.anchoredPosition = new Vector2(0f, 106f);
 
+            // Same 96px center-to-center rhythm (78-tall buttons, 18px gap) PauseMenu's stacked
+            // buttons use, rather than the tighter spacing this card had before, which put the
+            // Back button's taller 78px box overlapping the last 64px mode button above it.
             for (int i = 0; i < ModeOptions.Length; i++)
             {
                 GameMode mode = ModeOptions[i];
-                var button = CreateModeButton(card.transform, ModeLabels[i], new Vector2(0f, 20f - i * 88f), i, () => ChooseMode(mode));
+                var button = CreateModeButton(card.transform, ModeLabels[i], new Vector2(0f, 40f - i * 96f), i, () => ChooseMode(mode));
                 _modeButtons[i] = button.GetComponent<Image>();
                 _modeButtonObjects[i] = button.gameObject;
             }
 
-            CreateButton(card.transform, "Mode Back Button", "BACK", new Vector2(0f, -128f), ButtonBg, Color.white, CloseModeChoice);
+            CreateButton(card.transform, "Mode Back Button", "BACK", new Vector2(0f, -152f), ButtonBg, Color.white, CloseModeChoice);
 
             SetModeCardVisible(false);
         }
@@ -361,7 +364,9 @@ namespace Run.UI
 
             var rect = image.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(320f, 64f);
+            // Matches CreateButton's size (used for Back right below these) so every button in
+            // this card reads as the same size, not two different heights stacked together.
+            rect.sizeDelta = new Vector2(320f, 78f);
             rect.anchoredPosition = position;
 
             var button = buttonObject.GetComponent<Button>();
@@ -376,8 +381,8 @@ namespace Run.UI
             relay.Menu = this;
             relay.Index = index;
 
-            CreateLabel(buttonObject.transform, "Label", text, Vector2.zero, new Vector2(300f, 50f),
-                26, Color.white, bold: true);
+            CreateLabel(buttonObject.transform, "Label", text, Vector2.zero, new Vector2(300f, 60f),
+                30, Color.white, bold: true);
 
             return button;
         }

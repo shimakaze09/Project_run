@@ -124,16 +124,12 @@ namespace Run.AI
             _noticedTraps = 0;
         }
 
-        // ---- IRunnerInput -----------------------------------------------------------------
-
         // The take-off itself goes through PlayerController.RequestJump on the physics step the
         // brain picked (see FixedUpdate), so a slow frame rate can't make it late. The "press"
         // is therefore never used; the hold is what shapes the jump's height.
         public bool JumpPressed() => false;
 
         public bool JumpHeld() => _active && Time.time < _holdUntil;
-
-        // ---- Thinking ---------------------------------------------------------------------
 
         private void FixedUpdate()
         {
