@@ -8,7 +8,6 @@ using UnityEngine.SceneManagement;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.UI;
 #endif
-using Run.Effects;
 using Run.UI;
 
 namespace Run.EditorTools
@@ -62,33 +61,21 @@ namespace Run.EditorTools
         private static void ConfigureCamera(Scene menuScene)
         {
             var camera = FindInScene<Camera>(menuScene);
-            GameObject cameraObject;
             if (camera == null)
             {
-                cameraObject = new GameObject("Main Camera", typeof(Camera)) { tag = "MainCamera" };
+                var cameraObject = new GameObject("Main Camera", typeof(Camera)) { tag = "MainCamera" };
                 SceneManager.MoveGameObjectToScene(cameraObject, menuScene);
                 camera = cameraObject.GetComponent<Camera>();
-            }
-            else
-            {
-                cameraObject = camera.gameObject;
             }
 
             camera.orthographic = true;
             camera.orthographicSize = 5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            // Matches the dusk sky VisualArtSetup.Apply() paints the gameplay camera, so the
-            // title screen reads as the same world rather than a different app.
+            // MainMenu's own UI canvas draws a full-screen background image over this (see
+            // MainMenu.BuildBackground), so this color is only ever seen as a sliver before that
+            // loads, or as its own fallback if the art is missing.
             camera.backgroundColor = new Color(0.04f, 0.09f, 0.16f);
             camera.transform.position = new Vector3(0f, 1f, -10f);
-
-            // Reuses the same Twilight scenery (moon, stars, parallax mountains) the gameplay
-            // scene shows behind the runner, rather than inventing a second background to
-            // maintain. The camera never moves here, so it just sits as a still backdrop.
-            if (cameraObject.GetComponent<VisualAtmosphere>() == null)
-            {
-                cameraObject.AddComponent<VisualAtmosphere>();
-            }
         }
 
         private static void EnsureMainMenu(Scene menuScene)

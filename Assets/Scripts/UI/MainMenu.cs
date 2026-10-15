@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -200,26 +201,26 @@ namespace Run.UI
 
             var canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            // Same order as PauseMenu/SettingsMenu: this component's own SettingsMenu canvas is
-            // created right after this one in Awake, so at equal sortingOrder it wins the
-            // sibling-order tiebreak and draws on top, exactly like PauseMenu's card does. An
-            // overlay canvas always draws above the scenery behind it (a world-space camera
-            // layer) regardless of this number.
-            canvas.sortingOrder = 100;
+            // Strictly below SettingsMenu's own canvas (sortingOrder 100), so Settings always
+            // draws on top unambiguously. Relying on same-sortingOrder tie-breaking (creation
+            // order) worked for PauseMenu, which has nothing else in its scene, but this canvas
+            // now also carries the full-screen background image, and ties between two Overlay
+            // canvases aren't guaranteed to resolve the way creation order would suggest.
+            canvas.sortingOrder = 50;
 
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            // The background is the scenery behind the camera (see MainMenuSceneSetup) showing
-            // through unobscured, like the reference's illustrated splash art - no card panel or
-            // dimming behind the title/buttons, just their own shadow/fill for legibility.
+            BuildBackground(canvas.transform);
+
+            // No card panel or dimming behind the title/buttons - the background art itself,
+            // plus their own shadow/fill, carries legibility, matching the reference splash look.
             var cardObject = new GameObject("Card Group", typeof(CanvasGroup));
             cardObject.transform.SetParent(canvas.transform, false);
             _cardGroup = cardObject.GetComponent<CanvasGroup>();
 
-            CreateLabel(cardObject.transform, "Title", "ENDLESS RUNNER", new Vector2(0f, 320f), new Vector2(1200f, 120f),
-                88, Mint, bold: true, shadow: true);
+            BuildTitle(cardObject.transform);
 
             // A row of pill buttons along the bottom, matching the reference layout, instead of
             // the old stacked card - one per option the game actually has (no Collection-style
@@ -232,6 +233,68 @@ namespace Run.UI
             SetCardVisible(true);
 
             BuildModeCard(canvas.transform);
+        }
+
+        /// <summary>
+        /// Full-screen title-screen artwork. Loaded as a plain Texture2D (not pre-imported as a
+        /// Sprite) and wrapped at runtime, so the asset works regardless of whatever Texture Type
+        /// its import settings default to - this is the one raster image in a project where
+        /// every other piece of art is procedurally generated.
+        /// </summary>
+        private void BuildBackground(Transform parent)
+        {
+            var texture = Resources.Load<Texture2D>("Art/MainMenuBackground");
+            var background = new GameObject("Background", typeof(Image)).GetComponent<Image>();
+            background.transform.SetParent(parent, false);
+            background.rectTransform.anchorMin = Vector2.zero;
+            background.rectTransform.anchorMax = Vector2.one;
+            background.rectTransform.offsetMin = background.rectTransform.offsetMax = Vector2.zero;
+            background.raycastTarget = false;
+
+            if (texture != null)
+            {
+                background.sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            }
+            else
+            {
+                // Falls back to the dusk sky color alone if the art is ever missing, rather than
+                // showing nothing behind the title/buttons.
+                background.color = Ink;
+            }
+        }
+
+        /// <summary>
+        /// The "ENDLESS RUNNER" logo. TextMeshPro rather than the legacy Text the rest of this
+        /// menu uses, since a title needs tighter letter-spacing and a cleaner, bolder look than
+        /// legacy Text can give it. Stacked on two lines and shifted left/up rather than centered,
+        /// so it sits in the clear sky of the background art instead of behind the moon.
+        /// </summary>
+        private void BuildTitle(Transform parent)
+        {
+            var titleObject = new GameObject("Title", typeof(RectTransform));
+            titleObject.transform.SetParent(parent, false);
+
+            var rect = titleObject.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(900f, 260f);
+            rect.anchoredPosition = new Vector2(-470f, 300f);
+
+            var title = titleObject.AddComponent<TextMeshProUGUI>();
+            title.text = "ENDLESS\nRUNNER";
+            title.fontStyle = FontStyles.Bold;
+            title.alignment = TextAlignmentOptions.Center;
+            title.fontSize = 100;
+            title.lineSpacing = -12f;
+            title.characterSpacing = 4f;
+            // A warm cream rather than Mint, so the title pops as its own focal point instead of
+            // blending into the Mint PLAY button beneath it - closer to the moon's own glow color
+            // without being the exact same gold used for the Settings button.
+            title.color = new Color(0.98f, 0.93f, 0.78f);
+            title.raycastTarget = false;
+
+            var shadow = titleObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(Ink.r, Ink.g, Ink.b, 0.85f);
+            shadow.effectDistance = new Vector2(3f, -4f);
         }
 
         /// <summary>
