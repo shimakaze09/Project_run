@@ -36,6 +36,9 @@ namespace Run.UI
         private static readonly Color ButtonBg = new Color(0.1f, 0.15f, 0.23f, 1f);
         private static readonly Color Mint = new Color(0.43f, 0.94f, 0.78f);
         private static readonly Color Danger = new Color(0.95f, 0.45f, 0.35f);
+        // Matches MainMenu's palette - Settings/Quit read the same way on both screens now
+        // (bright fill + dark text) instead of each menu inventing its own convention.
+        private static readonly Color Gold = new Color(1f, 0.8f, 0.3f);
 
         private GameManager _game;
         private SettingsMenu _settingsMenu;
@@ -259,10 +262,10 @@ namespace Run.UI
             divider.rectTransform.anchoredPosition = new Vector2(0f, 214f);
 
             _resumeButtonObject = CreateButton(card.transform, "Resume Button", "RESUME", new Vector2(0f, 140f), Mint, Ink, Resume).gameObject;
-            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, 44f), ButtonBg, Color.white, OpenSettings).gameObject;
+            _settingsButtonObject = CreateButton(card.transform, "Settings Button", "SETTINGS", new Vector2(0f, 44f), Gold, Ink, OpenSettings).gameObject;
             CreateButton(card.transform, "Restart Button", "RESTART", new Vector2(0f, -52f), ButtonBg, Color.white, RestartRun);
             CreateButton(card.transform, "Main Menu Button", "MAIN MENU", new Vector2(0f, -148f), ButtonBg, Color.white, GoToMainMenu);
-            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -244f), ButtonBg, Danger, QuitGame);
+            CreateButton(card.transform, "Quit Button", "QUIT", new Vector2(0f, -244f), Danger, Ink, QuitGame);
 
             SetPanelVisible(false);
         }
