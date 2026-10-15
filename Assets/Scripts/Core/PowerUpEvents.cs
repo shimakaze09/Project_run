@@ -7,7 +7,7 @@ namespace Run.Core
         None,
         Shield,
         SpeedBoost,
-        DoubleJump
+        ExtraLife
     }
 
     public static class PowerUpEvents

@@ -9,13 +9,6 @@ namespace Run.Player
     /// Drives the player capsule: constant forward running plus a single, responsive,
     /// variable-height jump.
     /// </summary>
-    /// <remarks>
-    /// Gravity and the jump impulse are derived from a desired apex height and
-    /// time-to-apex, so the arc is tuned by feel rather than raw numbers. Coyote time and
-    /// a jump buffer keep the controls forgiving; heavier fall / low-jump gravity give the
-    /// arc its snap. The controller publishes its jump reach so the level generator can
-    /// guarantee the gaps and steps it spawns are clearable at the current run speed.
-    /// </remarks>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(CapsuleCollider2D))]
     [RequireComponent(typeof(PlayerHealth))]
@@ -82,18 +75,14 @@ namespace Run.Player
         private float _coyoteCounter;
         private float _bufferCounter;
         private bool _isGrounded;
-        private bool _startArmed;   // Ready-state gate: requires a fresh press to begin
+        private bool _startArmed;
         private bool _isDead;
         private float _effectiveMaxRunSpeed;
         private float _effectiveRunSpeedGain;
         private float _baseRunSpeed;
 
-        // Power-up state. Kept as independent flags (rather than a single "active type") so
-        // Shield, Speed Boost, and Double Jump can be active at once if their windows overlap.
         private bool _shieldActive;
         private bool _speedBoostActive;
-        private bool _doubleJumpActive;
-        private bool _airJumpUsed;
 
         /// <summary>Current forward run speed (grows over the session up to the max; boosted while Speed Boost is active).</summary>
         public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f);
@@ -122,8 +111,6 @@ namespace Run.Player
                 _groundLayers = groundLayer >= 0 ? (1 << groundLayer) : Physics2D.DefaultRaycastLayers;
             }
 
-            // Derive gravity and the jump impulse from the desired apex height/time:
-            //   height = ½ · g · t²   →   g = 2·height / t²,   v0 = g · t.
             _gravity = (2f * _jumpHeight) / (_timeToApex * _timeToApex);
             _jumpVelocity = _gravity * _timeToApex;
 
@@ -132,26 +119,13 @@ namespace Run.Player
             _body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             _body.interpolation = RigidbodyInterpolation2D.Interpolate;
 
-            // Auto-run presses the capsule into whatever it meets, so any surface friction
-            // would let it cling to a wall face and hang there. Frictionless contact means
-            // a blocked player always slides down under full gravity instead of sticking.
             _collider.sharedMaterial = PhysicsMaterials.Frictionless;
 
             ApplyDifficulty();
         }
 
-        /// <summary>
-        /// Re-reads <see cref="DifficultySettings"/> and recomputes the speed values derived
-        /// from it. Called from <see cref="Awake"/> for a sane default, and again whenever the
-        /// run actually starts (see <see cref="OnGameStateChanged"/>), since the Ready-screen
-        /// difficulty picker can change the selection at any point up until then — a one-time
-        /// read in <see cref="Awake"/> alone would miss any choice made after the scene loaded.
-        /// </summary>
         private void ApplyDifficulty()
         {
-            // The player's chosen challenge level scales both the base and the ramp
-            // ceiling by the same factor, so Easy/Hard shift the whole speed curve
-            // rather than just its starting point.
             float speedMultiplier = DifficultySettings.SpeedMultiplier;
             _baseRunSpeed = _runSpeed * speedMultiplier;
             _effectiveMaxRunSpeed = _maxRunSpeed * speedMultiplier;
@@ -188,10 +162,6 @@ namespace Run.Player
 
         private void OnGameStateChanged(GameState state)
         {
-            // Re-read here rather than only at the moment PlayerController itself starts the
-            // run, since anything can start it - the Ready-screen confirm press, or the
-            // Difficulty Menu starting the run directly when its already-picked difficulty is
-            // re-confirmed. Both must pick up whatever's currently selected.
             if (state == GameState.Playing)
             {
                 ApplyDifficulty();
@@ -210,10 +180,6 @@ namespace Run.Player
                     _speedBoostActive = true;
                     RecomputeJumpSpan();
                     break;
-
-                case PowerUpType.DoubleJump:
-                    _doubleJumpActive = true;
-                    break;
             }
         }
 
@@ -228,10 +194,6 @@ namespace Run.Player
                 case PowerUpType.SpeedBoost:
                     _speedBoostActive = false;
                     RecomputeJumpSpan();
-                    break;
-
-                case PowerUpType.DoubleJump:
-                    _doubleJumpActive = false;
                     break;
             }
         }
@@ -249,9 +211,6 @@ namespace Run.Player
 
             bool confirmPressed = RunInput.ConfirmPressed();
 
-            // While waiting to start, the first *fresh* press begins the run instead of
-            // jumping — and we require a release first so a click carried over from
-            // entering play (or the last run) can't auto-start it.
             if (game != null && game.State == GameState.Ready)
             {
                 if (!RunInput.JumpHeld())
@@ -277,13 +236,6 @@ namespace Run.Player
                 {
                     Jump();
                 }
-                else if (_doubleJumpActive && !_airJumpUsed)
-                {
-                    // The extra jump is only available once per airborne stretch, regardless
-                    // of how long the Double Jump power-up's remaining duration is.
-                    _airJumpUsed = true;
-                    Jump();
-                }
             }
 
             CheckDeathBounds();
@@ -299,8 +251,6 @@ namespace Run.Player
             var game = GameManager.Instance;
             bool playing = game != null && game.State == GameState.Playing;
 
-            // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
-            // generator's clamps stay in sync with how far the player can actually jump.
             if (playing && _effectiveMaxRunSpeed > _baseRunSpeed)
             {
                 _baseRunSpeed = Mathf.Min(_effectiveMaxRunSpeed, _baseRunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
@@ -309,11 +259,6 @@ namespace Run.Player
 
             float velocityX = playing ? (_autoRun ? RunSpeed : RunInput.Horizontal() * RunSpeed) : 0f;
 
-            // Catch-up: the scroll line advances at run speed regardless of what happens to
-            // the player, so any ground lost — to a collision, a bad landing, or being held
-            // up by an obstacle — would otherwise be permanent. Running proportionally
-            // faster while behind repays that debt and settles the player back into their
-            // screen lane; the cap keeps the recovery readable rather than a snap.
             if (playing && _autoRun)
             {
                 velocityX += CatchUpBonus();
@@ -321,8 +266,6 @@ namespace Run.Player
 
             float velocityY = _body.linearVelocity.y;
 
-            // Give the arc its snap: heavier gravity while falling, and while rising with
-            // the jump released (which shortens tapped jumps).
             if (velocityY < 0f)
             {
                 velocityY += Physics2D.gravity.y * _body.gravityScale * (_fallGravityMultiplier - 1f) * Time.fixedDeltaTime;
@@ -343,7 +286,6 @@ namespace Run.Player
             Jumped?.Invoke();
         }
 
-        /// <summary>Extra forward speed applied while the player trails the scroll line.</summary>
         private float CatchUpBonus()
         {
             var scroller = WorldScroller.Instance;
@@ -361,7 +303,6 @@ namespace Run.Player
             return Mathf.Min(behind * _catchUpGain, _maxCatchUpSpeed);
         }
 
-        /// <summary>Refreshes the grounded flag and coyote timer.</summary>
         private void UpdateGrounded()
         {
             bool wasGrounded = _isGrounded;
@@ -375,7 +316,6 @@ namespace Run.Player
             if (_isGrounded && _body.linearVelocity.y <= 0.01f)
             {
                 _coyoteCounter = _coyoteTime;
-                _airJumpUsed = false;
             }
             else
             {
@@ -409,11 +349,6 @@ namespace Run.Player
             }
         }
 
-        /// <summary>
-        /// Re-bases the player by <paramref name="dx"/> on X (floating origin). Sets both the
-        /// transform (so this frame's reads see the shift) and the body (so physics stays in
-        /// sync) to the same target — avoiding a one-frame divergence from the rest of the world.
-        /// </summary>
         public void ShiftX(float dx)
         {
             Vector3 position = transform.position;
@@ -422,7 +357,6 @@ namespace Run.Player
             _body.position = new Vector2(position.x, position.y);
         }
 
-        /// <summary>Ends the run. Idempotent — extra calls in the same frame are ignored.</summary>
         public void Kill(DeathCause cause)
         {
             if (_isDead)
@@ -430,9 +364,7 @@ namespace Run.Player
                 return;
             }
 
-            // Shield absorbs exactly one hazard hit (not a fall or being left behind, which
-            // are the player's own mistakes rather than something to block) and is consumed
-            // immediately, regardless of how much of its timer was left.
+            // Shield absorbs exactly one hazard hit
             if (_shieldActive && cause == DeathCause.Hazard)
             {
                 _shieldActive = false;
@@ -441,61 +373,52 @@ namespace Run.Player
                 return;
             }
 
-            // Hazard and LeftBehind hits cost a heart instead of ending the run outright,
-            // as long as hearts remain. Falling into a pit is always instant, since it's
-            // considered a player mistake rather than something a heart should protect against.
             bool hazardOrEdge = cause == DeathCause.Hazard || cause == DeathCause.LeftBehind;
-            if (hazardOrEdge && _health != null && !_health.IsDepleted){
+            if (hazardOrEdge && _health != null && !_health.IsDepleted)
+            {
                 bool depleted = _health.TakeHit();
                 StartCoroutine(FlashDamage());
                 GameFeel.Instance?.Emit(BurstKind.Spark, transform.position);
-                if (!depleted){
+                if (!depleted)
+                {
                     return;
                 }
             }
 
             _isDead = true;
             _body.linearVelocity = Vector2.zero;
-            _body.simulated = false;   // freeze in place; physics no longer applies
+            _body.simulated = false;
             GameManager.Instance?.NotifyPlayerDied(cause);
         }
 
-        /// <summary>Briefly flashes the player's sprite pieces to signal a hazard hit.</summary>
         private System.Collections.IEnumerator FlashDamage()
         {
-        if (_bodyRenderers == null || _bodyRenderers.Length == 0){
-        
-        yield break;
+            if (_bodyRenderers == null || _bodyRenderers.Length == 0)
+            {
+                yield break;
+            }
+
+            Color[] originals = new Color[_bodyRenderers.Length];
+            for (int i = 0; i < _bodyRenderers.Length; i++)
+            {
+                originals[i] = _bodyRenderers[i].color;
+            }
+
+            for (int repeat = 0; repeat < 3; repeat++)
+            {
+                for (int i = 0; i < _bodyRenderers.Length; i++)
+                {
+                    _bodyRenderers[i].color = Color.red;
+                }
+                yield return new WaitForSeconds(0.08f);
+                for (int i = 0; i < _bodyRenderers.Length; i++)
+                {
+                    _bodyRenderers[i].color = originals[i];
+                }
+                yield return new WaitForSeconds(0.08f);
+            }
         }
 
-
-
-        Color[] originals = new Color[_bodyRenderers.Length];
-        for (int i = 0; i < _bodyRenderers.Length; i++){
-        originals[i] = _bodyRenderers[i].color;
-        }
-
-        for (int repeat = 0; repeat < 3; repeat++){
-        
-           for (int i = 0; i < _bodyRenderers.Length; i++)
-           {
-            _bodyRenderers[i].color = Color.red;
-           }
-           yield return new WaitForSeconds(0.08f);
-           for (int i = 0; i < _bodyRenderers.Length; i++)
-           {
-            _bodyRenderers[i].color = originals[i];
-           }
-           yield return new WaitForSeconds(0.08f);
-           }
-        }
-
-    
-
-        /// <summary>
-        /// Ensures the sprite lives on a child "Visual" (kept separate from the physics
-        /// body so animation/juice can be layered on later without touching the collider).
-        /// </summary>
         private void EnsureVisual()
         {
             var visual = transform.Find("Visual");
@@ -514,15 +437,12 @@ namespace Run.Player
             if (renderer.sprite == null)
             {
                 renderer.sprite = Shapes.Capsule;
-                
             }
             _visualRenderer = renderer;
         }
 
         private void RecomputeJumpSpan()
         {
-            // Horizontal reach ≈ run speed × total air time (rise + fall). Rise uses base
-            // gravity; the fall uses the heavier fall gravity, matching FixedUpdate.
             float riseTime = _timeToApex;
             float fallGravity = _gravity * _fallGravityMultiplier;
             float fallTime = Mathf.Sqrt((2f * _jumpHeight) / fallGravity);
@@ -544,7 +464,4 @@ namespace Run.Player
         }
 #endif
     }
-
-
-    
 }
