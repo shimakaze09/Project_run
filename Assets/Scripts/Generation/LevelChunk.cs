@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Run.Collectibles;
+using Run.Core;
 using Run.Hazards;
 
 namespace Run.Generation
@@ -8,6 +9,16 @@ namespace Run.Generation
     /// <summary>An Inspector-authored level layout. Children are real prefab objects, not code recipes.</summary>
     public sealed class LevelChunk : MonoBehaviour
     {
+        // Same High-Contrast pair TrapFactory uses, so both modes speak one visual language. Set
+        // here rather than relying on the colours VisualArtSetup bakes into these prefabs because
+        // that bake is an Editor-time tool - it can't react to a Settings toggle at runtime.
+        // Hazard isn't the coins' warm gold (read as "same colour" at a glance); ground gets a
+        // separate, lighter edge shade too (its "Moss edge" trim below) so a run of ground reads
+        // as a surface rather than one feature-less block.
+        private static readonly Color SafeHC = new Color(0.2f, 0.42f, 0.58f);
+        private static readonly Color SafeEdgeHC = new Color(0.86f, 0.95f, 1f);
+        private static readonly Color HazardHC = new Color(1f, 0.15f, 0.45f);
+
         [Min(1f)] public float Width = 10f;
         public bool SafeStart;
         [Min(0f)] public float StartWeight = 1f;
@@ -19,6 +30,12 @@ namespace Run.Generation
         private PatrolEnemy[] _enemies;
         private Vector3[] _enemyPositions;
         private readonly List<IChunkAttachment> _attachments = new List<IChunkAttachment>();
+        private SpriteRenderer[] _hazardRenderers;
+        private Color[] _hazardBaseColors;
+        private SpriteRenderer[] _groundRenderers;
+        private Color[] _groundBaseColors;
+        private SpriteRenderer[] _groundEdgeRenderers;
+        private Color[] _groundEdgeBaseColors;
         public LevelChunk Source { get; set; }
         public float EndX => transform.position.x + Width;
 
@@ -41,6 +58,7 @@ namespace Run.Generation
                 _enemyPositions = new Vector3[_enemies.Length];
                 for (int i = 0; i < _enemies.Length; i++)
                     _enemyPositions[i] = _enemies[i].transform.localPosition;
+                CacheContrastGroups();
             }
             transform.position = new Vector3(x, 0f, 0f);
             gameObject.SetActive(true);
@@ -54,6 +72,69 @@ namespace Run.Generation
                 _enemies[i].transform.localPosition = _enemyPositions[i];
                 _enemies[i].ResetPatrol();
             }
+            ApplyContrast();
+        }
+
+        private void OnEnable() => AccessibilityPreferences.Changed += ApplyContrast;
+
+        private void OnDisable() => AccessibilityPreferences.Changed -= ApplyContrast;
+
+        /// <summary>
+        /// Groups every baked sprite by whether its piece is lethal (has a <see cref="Hazard"/>,
+        /// which <see cref="PatrolEnemy"/> also counts as) or standable ground/platform/crate -
+        /// the same split <c>VisualArtSetup</c> uses to decide how to paint each piece originally.
+        /// Coins are left alone either way; they're a pickup, not level geometry to tell apart
+        /// from a hazard.
+        /// </summary>
+        private void CacheContrastGroups()
+        {
+            var hazards = new List<SpriteRenderer>();
+            var ground = new List<SpriteRenderer>();
+            var groundEdge = new List<SpriteRenderer>();
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                var piece = transform.GetChild(i);
+                if (piece.GetComponent<Coin>() != null || piece.GetComponent<SpriteRenderer>() == null)
+                {
+                    continue;
+                }
+
+                if (piece.GetComponent<Hazard>() != null)
+                {
+                    hazards.AddRange(piece.GetComponentsInChildren<SpriteRenderer>(true));
+                    continue;
+                }
+
+                foreach (var sr in piece.GetComponentsInChildren<SpriteRenderer>(true))
+                {
+                    (sr.name == "Moss edge" ? groundEdge : ground).Add(sr);
+                }
+            }
+
+            _hazardRenderers = hazards.ToArray();
+            _hazardBaseColors = new Color[_hazardRenderers.Length];
+            for (int i = 0; i < _hazardRenderers.Length; i++) _hazardBaseColors[i] = _hazardRenderers[i].color;
+
+            _groundRenderers = ground.ToArray();
+            _groundBaseColors = new Color[_groundRenderers.Length];
+            for (int i = 0; i < _groundRenderers.Length; i++) _groundBaseColors[i] = _groundRenderers[i].color;
+
+            _groundEdgeRenderers = groundEdge.ToArray();
+            _groundEdgeBaseColors = new Color[_groundEdgeRenderers.Length];
+            for (int i = 0; i < _groundEdgeRenderers.Length; i++) _groundEdgeBaseColors[i] = _groundEdgeRenderers[i].color;
+        }
+
+        private void ApplyContrast()
+        {
+            if (_hazardRenderers == null)
+            {
+                return;
+            }
+
+            bool hc = AccessibilityPreferences.HighContrast;
+            for (int i = 0; i < _hazardRenderers.Length; i++) _hazardRenderers[i].color = hc ? HazardHC : _hazardBaseColors[i];
+            for (int i = 0; i < _groundRenderers.Length; i++) _groundRenderers[i].color = hc ? SafeHC : _groundBaseColors[i];
+            for (int i = 0; i < _groundEdgeRenderers.Length; i++) _groundEdgeRenderers[i].color = hc ? SafeEdgeHC : _groundEdgeBaseColors[i];
         }
 
         public void Shift(float dx)

@@ -33,6 +33,9 @@ namespace Run.UI
         // title-screen row reads as Play/Settings/Quit at a glance the way the reference art's
         // Play/Options/Quit row does, without introducing a new accent color to the game.
         private static readonly Color Gold = new Color(1f, 0.8f, 0.3f);
+        // Soft blue for the Tutorial button - the one new accent on this screen, so the four-button
+        // row (Play / Tutorial / Settings / Quit) still reads at a glance.
+        private static readonly Color Sky = new Color(0.55f, 0.78f, 1f);
 
         private static readonly GameMode[] ModeOptions = { GameMode.Runner, GameMode.Environment };
         private static readonly string[] ModeLabels = { "RUNNER", "ENVIRONMENT" };
@@ -44,6 +47,11 @@ namespace Run.UI
         private CanvasGroup _modeCardGroup;
         private bool _showingSettings;
         private bool _showingModeChoice;
+        // True when the mode card was opened from TUTORIAL rather than PLAY, so picking a mode
+        // starts a guided tutorial run instead of a normal one.
+        private bool _tutorialRequested;
+        private Text _modeTitleLabel;
+        private GameObject _tutorialButtonObject;
         private GameObject _playButtonObject;
         private GameObject _settingsButtonObject;
         private readonly Image[] _modeButtons = new Image[ModeOptions.Length];
@@ -53,6 +61,9 @@ namespace Run.UI
 
         private void Awake()
         {
+            // Coming back here (e.g. from the pause menu) always ends any tutorial in progress.
+            TutorialSettings.End();
+
             BuildCanvas();
 
             _settingsMenu = gameObject.AddComponent<SettingsMenu>();
@@ -104,6 +115,20 @@ namespace Run.UI
             }
         }
 
+        private void OpenPlayChoice()
+        {
+            _tutorialRequested = false;
+            _modeTitleLabel.text = "CHOOSE MODE";
+            OpenModeChoice();
+        }
+
+        private void OpenTutorialChoice()
+        {
+            _tutorialRequested = true;
+            _modeTitleLabel.text = "TUTORIAL";
+            OpenModeChoice();
+        }
+
         private void OpenModeChoice()
         {
             _showingModeChoice = true;
@@ -120,11 +145,20 @@ namespace Run.UI
             _showingModeChoice = false;
             SetModeCardVisible(false);
             SetCardVisible(true);
-            EventSystem.current?.SetSelectedGameObject(_playButtonObject);
+            EventSystem.current?.SetSelectedGameObject(_tutorialRequested ? _tutorialButtonObject : _playButtonObject);
         }
 
         private void ChooseMode(GameMode mode)
         {
+            if (_tutorialRequested)
+            {
+                TutorialSettings.Begin();
+            }
+            else
+            {
+                TutorialSettings.End();
+            }
+
             GameModeSettings.Set(mode);
             SceneManager.LoadScene(GameplaySceneName);
         }
@@ -229,9 +263,10 @@ namespace Run.UI
             // the old stacked card - one per option the game actually has (no Collection-style
             // extras). Color-coded the same way the reference's row is: a bright primary action,
             // then a secondary, then danger-red for Quit.
-            _playButtonObject = CreateButton(cardObject.transform, "Play Button", "PLAY", new Vector2(-340f, -420f), Mint, Ink, OpenModeChoice).gameObject;
-            _settingsButtonObject = CreateButton(cardObject.transform, "Settings Button", "SETTINGS", new Vector2(0f, -420f), Gold, Ink, OpenSettings).gameObject;
-            CreateButton(cardObject.transform, "Quit Button", "QUIT", new Vector2(340f, -420f), Danger, Ink, QuitGame);
+            _playButtonObject = CreateButton(cardObject.transform, "Play Button", "PLAY", new Vector2(-525f, -420f), Mint, Ink, OpenPlayChoice).gameObject;
+            _tutorialButtonObject = CreateButton(cardObject.transform, "Tutorial Button", "TUTORIAL", new Vector2(-175f, -420f), Sky, Ink, OpenTutorialChoice).gameObject;
+            _settingsButtonObject = CreateButton(cardObject.transform, "Settings Button", "SETTINGS", new Vector2(175f, -420f), Gold, Ink, OpenSettings).gameObject;
+            CreateButton(cardObject.transform, "Quit Button", "QUIT", new Vector2(525f, -420f), Danger, Ink, QuitGame);
 
             SetCardVisible(true);
 
@@ -325,7 +360,7 @@ namespace Run.UI
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             card.rectTransform.sizeDelta = new Vector2(440f, 460f);
 
-            CreateLabel(card.transform, "Title", "CHOOSE MODE", new Vector2(0f, 158f), new Vector2(400f, 60f),
+            _modeTitleLabel = CreateLabel(card.transform, "Title", "CHOOSE MODE", new Vector2(0f, 158f), new Vector2(400f, 60f),
                 36, Mint, bold: true, shadow: true);
 
             var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();

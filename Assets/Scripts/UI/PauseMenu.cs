@@ -54,6 +54,12 @@ namespace Run.UI
 
             _settingsMenu = gameObject.AddComponent<SettingsMenu>();
             _settingsMenu.BackRequested += CloseSettings;
+
+            // Started from the main menu's TUTORIAL button: add the on-screen guide for this run.
+            if (TutorialSettings.Active)
+            {
+                gameObject.AddComponent<TutorialGuide>();
+            }
         }
 
         private void Start()

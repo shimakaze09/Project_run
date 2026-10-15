@@ -40,6 +40,8 @@ namespace Run.UI
         private Text _masterValueLabel;
         private Text _musicValueLabel;
         private Text _sfxValueLabel;
+        private Image _highContrastButtonImage;
+        private Text _highContrastLabel;
         private GameObject _backButtonObject;
 
         private void Awake() => BuildCanvas();
@@ -64,6 +66,21 @@ namespace Run.UI
             _masterValueLabel.text = FormatPercent(VolumePreferences.Master);
             _musicValueLabel.text = FormatPercent(VolumePreferences.Music);
             _sfxValueLabel.text = FormatPercent(VolumePreferences.Sfx);
+            RefreshHighContrastLabel();
+        }
+
+        private void RefreshHighContrastLabel()
+        {
+            bool on = AccessibilityPreferences.HighContrast;
+            _highContrastLabel.text = on ? "HIGH CONTRAST: ON" : "HIGH CONTRAST: OFF";
+            _highContrastButtonImage.color = on ? Mint : ButtonBg;
+            _highContrastLabel.color = on ? Ink : Color.white;
+        }
+
+        private void ToggleHighContrast()
+        {
+            AccessibilityPreferences.SetHighContrast(!AccessibilityPreferences.HighContrast);
+            RefreshHighContrastLabel();
         }
 
         private static string FormatPercent(float value) => Mathf.RoundToInt(value * 100f) + "%";
@@ -105,7 +122,7 @@ namespace Run.UI
             glow.type = Image.Type.Sliced;
             glow.color = new Color(Mint.r, Mint.g, Mint.b, 0.22f);
             glow.rectTransform.anchorMin = glow.rectTransform.anchorMax = glow.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            glow.rectTransform.sizeDelta = new Vector2(444f, 564f);
+            glow.rectTransform.sizeDelta = new Vector2(444f, 704f);
 
             var card = new GameObject("Card", typeof(Image)).GetComponent<Image>();
             card.transform.SetParent(groupObject.transform, false);
@@ -113,9 +130,9 @@ namespace Run.UI
             card.type = Image.Type.Sliced;
             card.color = Panel;
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            card.rectTransform.sizeDelta = new Vector2(420f, 540f);
+            card.rectTransform.sizeDelta = new Vector2(420f, 680f);
 
-            CreateLabel(card.transform, "Title", "SETTINGS", new Vector2(0f, 198f), new Vector2(380f, 60f),
+            CreateLabel(card.transform, "Title", "SETTINGS", new Vector2(0f, 266f), new Vector2(380f, 60f),
                 40, Mint, TextAnchor.MiddleCenter, bold: true);
 
             var divider = new GameObject("Divider", typeof(Image)).GetComponent<Image>();
@@ -124,14 +141,20 @@ namespace Run.UI
             divider.color = new Color(Mint.r, Mint.g, Mint.b, 0.35f);
             divider.rectTransform.anchorMin = divider.rectTransform.anchorMax = divider.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             divider.rectTransform.sizeDelta = new Vector2(340f, 3f);
-            divider.rectTransform.anchoredPosition = new Vector2(0f, 148f);
+            divider.rectTransform.anchoredPosition = new Vector2(0f, 216f);
 
-            _masterValueLabel = CreateRow(card.transform, "MASTER", 92f, VolumePreferences.Master, VolumePreferences.SetMaster);
-            _musicValueLabel = CreateRow(card.transform, "MUSIC", -8f, VolumePreferences.Music, VolumePreferences.SetMusic);
-            _sfxValueLabel = CreateRow(card.transform, "SFX", -108f, VolumePreferences.Sfx, VolumePreferences.SetSfx);
+            _masterValueLabel = CreateRow(card.transform, "MASTER", 160f, VolumePreferences.Master, VolumePreferences.SetMaster);
+            _musicValueLabel = CreateRow(card.transform, "MUSIC", 60f, VolumePreferences.Music, VolumePreferences.SetMusic);
+            _sfxValueLabel = CreateRow(card.transform, "SFX", -40f, VolumePreferences.Sfx, VolumePreferences.SetSfx);
 
-            _backButtonObject = CreateButton(card.transform, "Back Button", "BACK", new Vector2(0f, -216f), Back).gameObject;
+            var highContrastButton = CreateButton(card.transform, "High Contrast Button", "", new Vector2(0f, -140f), ToggleHighContrast);
+            _highContrastButtonImage = highContrastButton.GetComponent<Image>();
+            _highContrastLabel = highContrastButton.GetComponentInChildren<Text>();
+            _highContrastLabel.fontSize = 22; // "HIGH CONTRAST: OFF" doesn't fit the label box at the standard 30pt
 
+            _backButtonObject = CreateButton(card.transform, "Back Button", "BACK", new Vector2(0f, -256f), Back).gameObject;
+
+            RefreshHighContrastLabel();
             SetVisible(false);
         }
 
