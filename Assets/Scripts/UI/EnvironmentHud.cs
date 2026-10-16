@@ -38,6 +38,7 @@ namespace Run.UI
         private Text[] _cardLabels = new Text[0];
         private CanvasGroup[] _cardGroups = new CanvasGroup[0];
         private RectTransform _cardsRoot;
+        private RectTransform _energyBarRect;
         private EnvironmentPlayer _player;
 
         private void Awake() => BuildCanvas();
@@ -97,6 +98,7 @@ namespace Run.UI
 
             var barBack = MakeImage(panel.transform, "Energy Bar", new Color(0.08f, 0.12f, 0.18f, 1f),
                 new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(660f, 22f));
+            _energyBarRect = barBack.rectTransform;
             var fill = MakeImage(barBack.transform, "Fill", Gold, Vector2.zero, Vector2.zero, Vector2.zero);
             _energyFill = fill.rectTransform;
             _energyFill.anchorMin = Vector2.zero;
@@ -109,7 +111,7 @@ namespace Run.UI
                 new Vector2(0.5f, 0f), new Vector2(0f, 212f), new Vector2(900f, 36f));
             MakeLabel(groupObject.transform, "Controls", 18, new Color(1f, 1f, 1f, 0.7f), TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(900f, 24f)).text =
-                "1-3 / WHEEL  PICK TRAP      CLICK  PLACE AHEAD OF THE RUNNER";
+                "1-5 / WHEEL  PICK TRAP      CLICK  PLACE AHEAD OF THE RUNNER";
             _statsLabel = MakeLabel(groupObject.transform, "Stats", 26, Color.white, TextAnchor.UpperRight,
                 new Vector2(1f, 1f), new Vector2(-30f, -28f), new Vector2(500f, 36f));
 
@@ -123,6 +125,12 @@ namespace Run.UI
             _cardLabels = new Text[cards.Count];
             _cardGroups = new CanvasGroup[cards.Count];
             float total = cards.Count * CardWidth + (cards.Count - 1) * CardGap;
+
+            // The panel/energy-bar width was sized by hand for 3 cards; widen it to fit however
+            // many the hotbar actually has instead of letting extra cards spill past the backdrop.
+            float panelWidth = Mathf.Max(720f, total + 60f);
+            _cardsRoot.sizeDelta = new Vector2(panelWidth, _cardsRoot.sizeDelta.y);
+            _energyBarRect.sizeDelta = new Vector2(panelWidth - 60f, _energyBarRect.sizeDelta.y);
 
             for (int i = 0; i < cards.Count; i++)
             {

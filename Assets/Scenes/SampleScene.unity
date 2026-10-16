@@ -2524,6 +2524,12 @@ MonoBehaviour:
   - Kind: 0
     Label: CRATE
     Cost: 20
+  - Kind: 3
+    Label: MUD
+    Cost: 15
+  - Kind: 4
+    Label: TAR
+    Cost: 25
   - Kind: 1
     Label: SPIKES
     Cost: 30
