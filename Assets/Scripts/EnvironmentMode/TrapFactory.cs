@@ -16,7 +16,19 @@ namespace Run.EnvironmentMode
         Spikes,
 
         /// <summary>A patrolling drone that paces back and forth over a short stretch.</summary>
-        Drone
+        Drone,
+
+        /// <summary>
+        /// A puddle that cuts run speed while the runner crosses it. Not lethal by itself, but it
+        /// narrows the safe jump window for whatever comes right after.
+        /// </summary>
+        Mud,
+
+        /// <summary>
+        /// A sticky patch that adds extra gravity while the runner crosses it, so a jump started
+        /// (or still rising) inside it falls shorter than planned.
+        /// </summary>
+        Tar
     }
 
     /// <summary>
@@ -35,9 +47,13 @@ namespace Run.EnvironmentMode
         private static readonly Color SpikeCore = new Color(0.98f, 0.35f, 0.52f);
         private static readonly Color SpikeFacet = new Color(1f, 0.73f, 0.77f);
         private static readonly Color DroneShell = new Color(0.69f, 0.26f, 0.49f);
+        private static readonly Color MudFill = new Color(0.32f, 0.24f, 0.12f);
+        private static readonly Color MudRim = new Color(0.18f, 0.13f, 0.06f);
+        private static readonly Color TarFill = new Color(0.08f, 0.06f, 0.1f);
+        private static readonly Color TarSheen = new Color(0.35f, 0.18f, 0.42f);
 
-        // Same High-Contrast pair LevelChunk uses, so every mode speaks one visual language:
-        // one bright colour for anything lethal, one dark one for anything merely standable.
+        // Same High-Contrast pair LevelChunk uses: bright for anything to avoid (lethal or just
+        // a debuff), dark for the only genuinely harmless trap, Crate.
         private static readonly Color SafeHC = new Color(0.2f, 0.42f, 0.58f);
         private static readonly Color HazardHC = new Color(1f, 0.15f, 0.45f);
 
@@ -53,6 +69,8 @@ namespace Run.EnvironmentMode
             {
                 case TrapKind.Crate: return new Vector2(1f, 1f);
                 case TrapKind.Spikes: return new Vector2(1.5f, 0.6f);
+                case TrapKind.Mud: return new Vector2(1.3f, 0.3f);
+                case TrapKind.Tar: return new Vector2(1.1f, 0.3f);
                 default: return new Vector2(0.9f, 0.9f);
             }
         }
@@ -95,6 +113,28 @@ namespace Run.EnvironmentMode
                     root.AddComponent<PatrolEnemy>();
                     AddSparkle(root, 0.4f);
                     break;
+
+                case TrapKind.Mud:
+                {
+                    var mud = root.AddComponent<BoxCollider2D>();
+                    mud.isTrigger = true;
+                    mud.size = size;
+                    var effect = root.AddComponent<TrapEffectZone>();
+                    effect.Kind = TrapEffectKind.Slow;
+                    AddSparkle(root, 1.3f);
+                    break;
+                }
+
+                case TrapKind.Tar:
+                {
+                    var tar = root.AddComponent<BoxCollider2D>();
+                    tar.isTrigger = true;
+                    tar.size = size;
+                    var effect = root.AddComponent<TrapEffectZone>();
+                    effect.Kind = TrapEffectKind.Heavy;
+                    AddSparkle(root, 1.3f);
+                    break;
+                }
             }
 
             var trap = root.AddComponent<PlacedTrap>();
@@ -163,6 +203,22 @@ namespace Run.EnvironmentMode
                     Draw(art, "Right eye", ShapeType.Circle, 0.03f, 0.04f, 0.1f, 0.1f, hc ? Ink : Gold, 9);
                     Draw(art, "Left foot", ShapeType.RoundedSquare, -0.22f, -0.34f, 0.22f, 0.13f, Ink, 9);
                     Draw(art, "Right foot", ShapeType.RoundedSquare, 0.22f, -0.34f, 0.22f, 0.13f, Ink, 9);
+                    break;
+
+                case TrapKind.Mud:
+                    Color mudFill = hc ? HazardHC : MudFill;
+                    Draw(art, "Mud rim", ShapeType.RoundedSquare, 0f, 0f, 1.3f, 0.3f, MudRim, 5);
+                    Draw(art, "Mud pool", ShapeType.RoundedSquare, 0f, 0.01f, 1.1f, 0.2f, mudFill, 6);
+                    Draw(art, "Mud bubble", ShapeType.Circle, -0.3f, 0.03f, 0.1f, 0.1f, hc ? Ink : MudRim, 7);
+                    Draw(art, "Mud bubble small", ShapeType.Circle, 0.25f, -0.02f, 0.07f, 0.07f, hc ? Ink : MudRim, 7);
+                    break;
+
+                case TrapKind.Tar:
+                    Color tarFill = hc ? HazardHC : TarFill;
+                    Draw(art, "Tar rim", ShapeType.RoundedSquare, 0f, 0f, 1.1f, 0.3f, Ink, 5);
+                    Draw(art, "Tar pool", ShapeType.RoundedSquare, 0f, 0.01f, 0.92f, 0.2f, tarFill, 6);
+                    Draw(art, "Tar sheen", ShapeType.RoundedSquare, -0.15f, 0.06f, 0.32f, 0.08f, hc ? Ink : TarSheen, 7)
+                        .transform.localRotation = Quaternion.Euler(0f, 0f, -15f);
                     break;
             }
         }

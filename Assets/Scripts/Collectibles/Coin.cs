@@ -51,7 +51,7 @@ namespace Run.Collectibles
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_collected || !other.CompareTag("Player") || GameManager.Instance == null ||
+            if (_collected || !other.CompareTag(Tags.Player) || GameManager.Instance == null ||
                 GameManager.Instance.State != GameState.Playing)
             {
                 return;

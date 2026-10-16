@@ -52,6 +52,8 @@ namespace Run.EnvironmentMode
         [SerializeField] private TrapCard[] _cards =
         {
             new TrapCard { Kind = TrapKind.Crate, Label = "CRATE", Cost = 20 },
+            new TrapCard { Kind = TrapKind.Mud, Label = "MUD", Cost = 15 },
+            new TrapCard { Kind = TrapKind.Tar, Label = "TAR", Cost = 25 },
             new TrapCard { Kind = TrapKind.Spikes, Label = "SPIKES", Cost = 30 },
             new TrapCard { Kind = TrapKind.Drone, Label = "DRONE", Cost = 45 }
         };

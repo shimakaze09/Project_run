@@ -255,7 +255,9 @@ namespace Run.AI
             {
                 if (now - trap.PlacedAt < _brain.CurrentSkill.ReactionTime) continue;
                 if (trap.Drone != null) planner.AddMover(trap.Bounds, trap.Drone.Motion);
-                else planner.AddHazard(trap.Bounds); // a crate is avoided like a hazard
+                // A crate isn't lethal either, but it's solid, so it's avoided like a hazard too.
+                // Mud/Tar are non-solid - jumping them would dodge the debuff they're meant to land.
+                else if (trap.Kind != TrapKind.Mud && trap.Kind != TrapKind.Tar) planner.AddHazard(trap.Bounds);
             }
         }
 

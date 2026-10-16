@@ -542,8 +542,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c56f77590e68724086e727049a40082, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Run.Collectibles.PowerUpPickup
-  type: 2
-  duration: 5
+  _powerUpType: 2
+  _duration: 5
 --- !u!61 &469656181
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -2524,6 +2524,12 @@ MonoBehaviour:
   - Kind: 0
     Label: CRATE
     Cost: 20
+  - Kind: 3
+    Label: MUD
+    Cost: 15
+  - Kind: 4
+    Label: TAR
+    Cost: 25
   - Kind: 1
     Label: SPIKES
     Cost: 30
