@@ -4,47 +4,55 @@ using Run.Core;
 
 namespace Run.Collectibles
 {
+    /// <summary>
+    /// A pick-up that grants a timed power-up (see <see cref="PowerUpEvents"/>) on contact, and
+    /// gently bobs in place for visual life.
+    /// </summary>
     [RequireComponent(typeof(Collider2D))]
-    public class PowerUpPickup : MonoBehaviour, IWorldShiftable
+    public sealed class PowerUpPickup : MonoBehaviour
     {
-        [SerializeField] private PowerUpType type = PowerUpType.Shield;
-        [SerializeField] private float duration = 5f;
+        [SerializeField] private PowerUpType _powerUpType = PowerUpType.Shield;
+        [SerializeField, Min(0f)] private float _duration = 5f;
+        [SerializeField, Min(0f)] private float _bobAmplitude = 0.2f;
+        [SerializeField, Min(0f)] private float _bobFrequency = 3f;
 
-        private float startY;
-        private float bobTimer;
+        private float _startY;
+        private float _bobTimer;
 
-        private void Awake()
+        private void Reset()
         {
             GetComponent<Collider2D>().isTrigger = true;
         }
 
         private void OnEnable()
         {
-            startY = transform.position.y;
-            bobTimer = 0f;
+            _startY = transform.position.y;
+            _bobTimer = 0f;
         }
 
         private void Update()
         {
-            bobTimer += Time.deltaTime * 3f;
+            _bobTimer += Time.deltaTime * _bobFrequency;
             transform.position = new Vector3(
                 transform.position.x,
-                startY + Mathf.Sin(bobTimer) * 0.2f,
+                _startY + Mathf.Sin(_bobTimer) * _bobAmplitude,
                 transform.position.z
             );
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (other.CompareTag("Player"))
+            // Mirrors Coin's guard: without it, a dead player sliding into a pickup while the
+            // Game Over screen is up (physics keeps running - only the Pause menu stops time)
+            // would still collect it.
+            if (!other.CompareTag(Tags.Player) || GameManager.Instance == null ||
+                GameManager.Instance.State != GameState.Playing)
             {
-                PowerUpEvents.TriggerActivated(type, duration);
-                gameObject.SetActive(false);
+                return;
             }
-        }
 
-        public void OnWorldShift(float dx)
-        {
+            PowerUpEvents.TriggerActivated(_powerUpType, _duration);
+            gameObject.SetActive(false);
         }
     }
 }

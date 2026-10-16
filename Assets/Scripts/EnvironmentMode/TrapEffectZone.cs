@@ -1,4 +1,5 @@
 using UnityEngine;
+using Run.Common;
 using Run.Player;
 
 namespace Run.EnvironmentMode
@@ -38,7 +39,7 @@ namespace Run.EnvironmentMode
 
         private void OnTriggerStay2D(Collider2D other)
         {
-            if (!other.CompareTag("Player"))
+            if (!other.CompareTag(Tags.Player))
             {
                 return;
             }

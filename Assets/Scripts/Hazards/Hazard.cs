@@ -1,4 +1,5 @@
 using UnityEngine;
+using Run.Common;
 using Run.Core;
 using Run.Player;
 
@@ -31,7 +32,7 @@ namespace Run.Hazards
 
         protected virtual void OnTriggerEnter2D(Collider2D other)
         {
-            if (!other.CompareTag("Player"))
+            if (!other.CompareTag(Tags.Player))
             {
                 return;
             }
