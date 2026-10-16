@@ -256,10 +256,7 @@ namespace Run.AI
                 if (now - trap.PlacedAt < _brain.CurrentSkill.ReactionTime) continue;
                 if (trap.Drone != null) planner.AddMover(trap.Bounds, trap.Drone.Motion);
                 // A crate isn't lethal either, but it's solid, so it's avoided like a hazard too.
-                // Mud/Tar are flat and non-lethal *and* non-solid - the runner is meant to just
-                // run through them and eat the debuff (re-read live via _player.RunSpeed/Gravity
-                // above). Adding them here would let a jump dodge the effect entirely, making the
-                // trap free to place around.
+                // Mud/Tar are non-solid - jumping them would dodge the debuff they're meant to land.
                 else if (trap.Kind != TrapKind.Mud && trap.Kind != TrapKind.Tar) planner.AddHazard(trap.Bounds);
             }
         }

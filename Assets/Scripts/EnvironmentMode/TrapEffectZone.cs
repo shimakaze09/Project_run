@@ -14,21 +14,18 @@ namespace Run.EnvironmentMode
     }
 
     /// <summary>
-    /// A non-lethal trap's gameplay effect: debuffs the runner while they overlap it and reverts
-    /// the moment they leave, rather than running on a fixed duration like a power-up. Combined
-    /// with <see cref="Run.Hazards.Hazard"/>-based traps this is what lets a placement read as a
-    /// combo - e.g. Mud right before Spikes narrows the runner's safe jump window instead of just
-    /// slowing it down in open ground.
+    /// A non-lethal trap's gameplay effect: refreshes a short timed debuff on
+    /// <see cref="PlayerController"/> every physics step the runner overlaps it, then lets it
+    /// expire on its own, rather than tracking the exact moment they leave.
     /// </summary>
     [RequireComponent(typeof(Collider2D))]
     public sealed class TrapEffectZone : MonoBehaviour
     {
-        public TrapEffectKind Kind;
+        // Long enough to still be in effect for a jump taken shortly after leaving the puddle,
+        // short enough to read as "you're still feeling that" rather than a lingering power-up.
+        private const float LingerDuration = 0.6f;
 
-        // Tracked rather than trusting Enter/Exit alone: disabling this trap's collider (ghost
-        // phase, pooling) while the runner is standing inside it isn't guaranteed to fire
-        // OnTriggerExit2D, which would otherwise leave the debuff stuck on permanently.
-        private PlayerController _overlapping;
+        public TrapEffectKind Kind;
 
         private void Reset()
         {
@@ -39,9 +36,9 @@ namespace Run.EnvironmentMode
             }
         }
 
-        private void OnTriggerEnter2D(Collider2D other)
+        private void OnTriggerStay2D(Collider2D other)
         {
-            if (_overlapping != null || !other.CompareTag("Player"))
+            if (!other.CompareTag("Player"))
             {
                 return;
             }
@@ -52,44 +49,14 @@ namespace Run.EnvironmentMode
                 return;
             }
 
-            _overlapping = player;
-            Apply(add: true);
-        }
-
-        private void OnTriggerExit2D(Collider2D other)
-        {
-            if (_overlapping == null || !other.CompareTag("Player"))
-            {
-                return;
-            }
-
-            Apply(add: false);
-            _overlapping = null;
-        }
-
-        private void OnDisable()
-        {
-            if (_overlapping == null)
-            {
-                return;
-            }
-
-            Apply(add: false);
-            _overlapping = null;
-        }
-
-        private void Apply(bool add)
-        {
             switch (Kind)
             {
                 case TrapEffectKind.Slow:
-                    if (add) _overlapping.AddSlowZone();
-                    else _overlapping.RemoveSlowZone();
+                    player.ApplySlow(LingerDuration);
                     break;
 
                 case TrapEffectKind.Heavy:
-                    if (add) _overlapping.AddHeavyZone();
-                    else _overlapping.RemoveHeavyZone();
+                    player.ApplyHeavy(LingerDuration);
                     break;
             }
         }

@@ -95,22 +95,23 @@ namespace Run.Player
         private bool _doubleJumpActive;
         private bool _airJumpUsed;
 
-        // Environment-mode trap effects (Mud/Tar - see TrapEffectZone). Counted rather than a
-        // single flag so overlapping two zones at once (e.g. standing across the seam between
-        // two placed traps) can't let leaving one wrongly clear the other's effect.
-        private int _slowStacks;
-        private int _heavyStacks;
-        private const float SlowSpeedMultiplier = 0.55f;
-        private const float HeavyGravityMultiplier = 1.6f;
+        // Environment-mode trap effects (Mud/Tar - see TrapEffectZone), as an expiry timestamp
+        // rather than "while overlapping": the puddles are crossed in a fraction of a second, so
+        // the effect needs to outlast the touch itself to be noticeable (and for Tar, to actually
+        // cover a jump taken just after leaving).
+        private float _slowUntil;
+        private float _heavyUntil;
+        private const float SlowSpeedMultiplier = 0.35f;
+        private const float HeavyGravityMultiplier = 2.4f;
 
         // Who presses jump during a run. Starting the run always stays with the human
         // (RunInput), so the Ready screen works the same in every mode.
         private IRunnerInput _input = HumanRunnerInput.Instance;
 
         /// <summary>Current forward run speed (grows over the session up to the max; boosted while
-        /// Speed Boost is active, cut while standing in a Mud trap).</summary>
+        /// Speed Boost is active, cut for a moment after touching a Mud trap).</summary>
         public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f)
-            * (_slowStacks > 0 ? SlowSpeedMultiplier : 1f);
+            * (Time.time < _slowUntil ? SlowSpeedMultiplier : 1f);
 
         /// <summary>Peak reachable jump height, in world units.</summary>
         public float MaxJumpHeight => _jumpHeight;
@@ -127,10 +128,10 @@ namespace Run.Player
         public float ForwardSpeed { get; private set; }
 
         // The numbers behind the jump arc, published so the computer runner can simulate
-        // exactly the same physics this controller applies in FixedUpdate. Gravity reflects
-        // an active Tar trap (see RefreshGravityScale); _gravity itself stays the base value
+        // exactly the same physics this controller applies in FixedUpdate.
+        // _gravity itself stays the base value - only this property reflects a recent Tar trap -
         // so RecomputeJumpSpan's level-generation numbers never pick up a transient trap effect.
-        public float Gravity => _gravity * (_heavyStacks > 0 ? HeavyGravityMultiplier : 1f);
+        public float Gravity => _gravity * (Time.time < _heavyUntil ? HeavyGravityMultiplier : 1f);
         public float JumpVelocity => _jumpVelocity;
         public float FallGravityMultiplier => _fallGravityMultiplier;
         public float LowJumpMultiplier => _lowJumpMultiplier;
@@ -159,24 +160,23 @@ namespace Run.Player
             _input = source ?? HumanRunnerInput.Instance;
         }
 
-        /// <summary>
-        /// Called by a Mud trap's <see cref="Run.EnvironmentMode.TrapEffectZone"/> while
-        /// overlapping. Refreshes <see cref="MaxJumpSpan"/> immediately, the same way Speed
-        /// Boost's activate/expire handlers do, since it's derived from this same
-        /// <see cref="RunSpeed"/> and the level generator reads it live to pick chunks.
-        /// </summary>
-        public void AddSlowZone() { _slowStacks++; RecomputeJumpSpan(); }
-        public void RemoveSlowZone() { _slowStacks = Mathf.Max(0, _slowStacks - 1); RecomputeJumpSpan(); }
+        /// <summary>Called repeatedly by a Mud trap while the runner stands in it; extends the
+        /// slow rather than stacking. Also refreshes <see cref="MaxJumpSpan"/>, which the level
+        /// generator reads live to pick chunks.</summary>
+        public void ApplySlow(float duration)
+        {
+            _slowUntil = Mathf.Max(_slowUntil, Time.time + duration);
+            RecomputeJumpSpan();
+        }
 
-        /// <summary>Called by a Tar trap's <see cref="Run.EnvironmentMode.TrapEffectZone"/> while overlapping.</summary>
-        public void AddHeavyZone() { _heavyStacks++; RefreshGravityScale(); }
-        public void RemoveHeavyZone() { _heavyStacks = Mathf.Max(0, _heavyStacks - 1); RefreshGravityScale(); }
+        /// <summary>Called repeatedly by a Tar trap while the runner stands in it; extends the
+        /// heavy gravity rather than stacking.</summary>
+        public void ApplyHeavy(float duration) => _heavyUntil = Mathf.Max(_heavyUntil, Time.time + duration);
 
         /// <summary>
-        /// Pushes the current effective gravity (base, or heavier while in a Tar trap) onto the
-        /// Rigidbody2D. Unity applies <c>Physics2D.gravity * gravityScale</c> every physics step
-        /// on its own, and FixedUpdate's fall/low-jump multipliers are also scaled off
-        /// <c>gravityScale</c> - updating it here is the one place needed to make Tar affect both.
+        /// Pushes the current effective gravity onto the Rigidbody2D - called every
+        /// <see cref="FixedUpdate"/> so a Tar effect decays back to normal the instant its timer
+        /// lapses, with no separate "Tar ended" event needed.
         /// </summary>
         private void RefreshGravityScale()
         {
@@ -270,13 +270,10 @@ namespace Run.Player
             // re-confirmed. Both must pick up whatever's currently selected.
             if (state == GameState.Playing)
             {
-                // Disabling a trap's collider (ghost/recycle) doesn't reliably fire
-                // OnTriggerExit2D if the runner was standing inside it - TrapEffectZone covers
-                // that for the live run, but a fresh run should never inherit a stuck debuff.
-                // Cleared before ApplyDifficulty so its RecomputeJumpSpan call below doesn't
-                // bake a stale Mud slow into this run's starting MaxJumpSpan.
-                _slowStacks = 0;
-                _heavyStacks = 0;
+                // A fresh run should never inherit a Mud/Tar debuff left over from the last one;
+                // cleared before ApplyDifficulty so its RecomputeJumpSpan isn't tainted by it.
+                _slowUntil = 0f;
+                _heavyUntil = 0f;
                 RefreshGravityScale();
 
                 ApplyDifficulty();
@@ -381,6 +378,8 @@ namespace Run.Player
 
             var game = GameManager.Instance;
             bool playing = game != null && game.State == GameState.Playing;
+
+            RefreshGravityScale();
 
             // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
             // generator's clamps stay in sync with how far the player can actually jump.

@@ -52,9 +52,8 @@ namespace Run.EnvironmentMode
         private static readonly Color TarFill = new Color(0.08f, 0.06f, 0.1f);
         private static readonly Color TarSheen = new Color(0.35f, 0.18f, 0.42f);
 
-        // Same High-Contrast pair LevelChunk uses, so every mode speaks one visual language: one
-        // bright colour for anything to avoid (lethal or just a debuff), one dark one for the
-        // only genuinely harmless trap, Crate.
+        // Same High-Contrast pair LevelChunk uses: bright for anything to avoid (lethal or just
+        // a debuff), dark for the only genuinely harmless trap, Crate.
         private static readonly Color SafeHC = new Color(0.2f, 0.42f, 0.58f);
         private static readonly Color HazardHC = new Color(1f, 0.15f, 0.45f);
 
