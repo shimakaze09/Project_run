@@ -103,9 +103,12 @@ on contact, shown on the HUD and cleared automatically on expiry:
 - **Speed Boost**: multiplies run speed by 1.3× for the pickup's duration.
 - **Double Jump**: grants one extra mid-air jump per landing while active.
 
-Durations are configured per-pickup in the Inspector (5–8s by default). See
+Durations and the bob animation are configured per-pickup in the Inspector. A dead player can't
+collect one (physics keeps running after Game Over; only the Pause menu stops time). See
 `Core/PowerUpEvents.cs` and the `OnPowerUpActivated`/`OnPowerUpExpired` handling in
-`Player/PlayerController.cs`.
+`Player/PlayerController.cs`. `PowerUpEvents.Active` reports the most recently granted type
+without each listener needing to track it separately; `TriggerActivated` ignores
+`PowerUpType.None` and non-positive durations.
 
 ## Environment mode
 
@@ -114,10 +117,16 @@ drop traps ahead of it while the game keeps going; there is no pausing to build.
 **PLAY AS ▸ ENVIRONMENT** on the Ready screen (saved in `PlayerPrefs` like difficulty),
 then start the run as usual.
 
-- **Controls:** `1`–`3` or the mouse wheel pick a trap; **left-click** places it. A preview
+- **Controls:** `1`–`5` or the mouse wheel pick a trap; **left-click** places it. A preview
   follows the cursor: green where the trap fits, red with a reason on the HUD where it doesn't.
-- **Traps:** Crate (20 energy, a solid block to jump), Spikes (30, cost a heart), Drone (45,
+- **Traps:** Crate (20 energy, a solid block to jump), Mud (15, cuts run speed while crossed),
+  Tar (25, adds gravity while crossed so jumps fall short), Spikes (30, cost a heart), Drone (45,
   paces back and forth over its patch of ground).
+- **Combos:** Mud and Tar are non-lethal and the computer runner never jumps them (see below), so
+  placing one right before Spikes or a Drone narrows the runner's safe jump window instead of
+  just slowing it down on open ground. Both effects linger briefly (0.6s) after the runner leaves
+  the puddle, so they can still affect a jump taken just after — see
+  `Player/PlayerController.ApplySlow`/`ApplyHeavy`.
 - **Energy** starts at 40/100, refills 9 per second, and refunds 15 for every heart the runner loses.
 - **Fair play:** a placed trap is a harmless pulsing ghost for 0.4 s before it turns real.
   Nothing can be placed in the faint red zone in front of the runner, which always covers that
@@ -140,9 +149,11 @@ coyote time and the catch-up sprint. If running straight on would hurt it, the p
 jump at each step before the danger, with several hold lengths, and keeps the ones that land
 safely with solid footing. `AI/RunnerBrain` aims for the take-off furthest from both edges of
 that safe window, keeps the target stable as it gets closer, and adds the skill-based timing
-error. Placed traps reach it through `PlacedTrap.Active` only after its reaction delay. Turn on
-**Log Decisions** on the Player's `RunnerAI` to see every jump in the Console; with Gizmos
-on, the Scene view also draws the planned jump arc.
+error. Placed traps reach it through `PlacedTrap.Active` only after its reaction delay, and a
+crate is avoided the same way a hazard is - except Mud and Tar, which the planner deliberately
+leaves out, since they're not solid and jumping them would just dodge the debuff they're meant to
+land. Turn on **Log Decisions** on the Player's `RunnerAI` to see every jump in the Console; with
+Gizmos on, the Scene view also draws the planned jump arc.
 
 ### Files and tuning
 
@@ -151,6 +162,9 @@ on, the Scene view also draws the planned jump arc.
 - `EnvironmentMode/PlacedTrap`, `TrapFactory`: the traps, drawn in code in the twilight style.
   They are parented to the chunk they sit on, so they scroll, re-base and recycle with it
   (`Generation/IChunkAttachment`).
+- `EnvironmentMode/TrapEffectZone`: Mud/Tar's gameplay effect - a trigger that refreshes a short
+  timed debuff on `Player/PlayerController` (`ApplySlow`/`ApplyHeavy`) every physics step the
+  runner overlaps it, rather than tracking the exact moment they leave.
 - `AI/RunnerAI`: per-difficulty skill (reaction time, timing jitter, mistake chance and size).
 - `CameraRig/CameraFollow`: the Environment-mode lead, zoom and height.
 - `UI/ModeMenu`, `UI/EnvironmentHud`; `UI/HudController` swaps its prompts and record.
@@ -197,6 +211,8 @@ Scripts live under `Assets/Scripts`, namespaced `Run.*`.
   jump requirements, pooled reset/shift behavior, and the High Contrast Hazards repaint.
 - `Common/Shapes`: runtime player artwork. Prefab artwork is saved under
   `Assets/Art`, so all level pieces also render in Prefab Mode.
+- `Common/Tags`: shared GameObject tag strings (currently just `Player`), so a rename shows up
+  as one compile error instead of several silent `CompareTag` mismatches at runtime.
 - `Generation/PieceFactory` and `Segment` remain legacy authoring helpers;
   the runtime level loader no longer uses either.
 - `Editor/RunnerSetup`: builds/repairs the gameplay shell.
