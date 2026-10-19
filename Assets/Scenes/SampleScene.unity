@@ -544,6 +544,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Run.Collectibles.PowerUpPickup
   _powerUpType: 2
   _duration: 5
+  _bobAmplitude: 0.2
+  _bobFrequency: 3
 --- !u!61 &469656181
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1649,6 +1651,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1287224992
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1287224994}
+  - component: {fileID: 1287224993}
+  m_Layer: 0
+  m_Name: DynamicMusic
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1287224993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1287224992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92b7470530d4f49a7b52810676e714c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Run.Audio.DynamicMusic
+  _versions:
+  - {fileID: 8300000, guid: d8584a53a99e24395a782876ef91256a, type: 3}
+  - {fileID: 8300000, guid: 566926edb1e05473aa72ba033b346c2f, type: 3}
+  - {fileID: 8300000, guid: f33b5b829a9f143ee81ceb14a0afbe27, type: 3}
+  _startTimes:
+  - 0
+  - 30
+  - 60
+  _fadeDuration: 3
+--- !u!4 &1287224994
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1287224992}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 802.4086, y: 1411.4624, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1375936034
 GameObject:
   m_ObjectHideFlags: 0
@@ -1925,7 +1980,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Run.Audio.AudioManager
   _musicSource: {fileID: 1583463264}
   _sfxSource: {fileID: 1583463265}
-  _backgroundMusic: {fileID: 8300000, guid: 21ef56fca0a374d8f8d7d90a7700b1cd, type: 3}
+  _backgroundMusic: {fileID: 0}
+  _mainMenuMusic: {fileID: 8300000, guid: 2ad91e46ca8af49f4944fdda2abf0df9, type: 3}
+  _mainMenuSceneName: MainMenu
   _jumpClip: {fileID: 8300000, guid: c42b4b420193c42849df348a24e4b789, type: 3}
   _coinClip: {fileID: 8300000, guid: 740be3e5f2f5647639516efd8f136a50, type: 3}
   _damageClip: {fileID: 8300000, guid: 964a7484a0b1c4cdd8164e05a9ad9779, type: 3}
@@ -2723,3 +2780,4 @@ SceneRoots:
   - {fileID: 2016711020}
   - {fileID: 1045159802}
   - {fileID: 1263001540}
+  - {fileID: 1287224994}
