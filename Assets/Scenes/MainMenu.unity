@@ -387,6 +387,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4378469196481375704, guid: d62848c304d594ec29c6525fc46107f4, type: 3}
+      propertyPath: _mainMenuMusic
+      value: 
+      objectReference: {fileID: 8300000, guid: 2ad91e46ca8af49f4944fdda2abf0df9, type: 3}
+    - target: {fileID: 4378469196481375704, guid: d62848c304d594ec29c6525fc46107f4, type: 3}
+      propertyPath: _backgroundMusic
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 5066567625752127078, guid: d62848c304d594ec29c6525fc46107f4, type: 3}
       propertyPath: m_LocalPosition.x
       value: 802.4086

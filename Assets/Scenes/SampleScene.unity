@@ -1681,9 +1681,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Run.Audio.DynamicMusic
   _versions:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 8300000, guid: d8584a53a99e24395a782876ef91256a, type: 3}
+  - {fileID: 8300000, guid: 566926edb1e05473aa72ba033b346c2f, type: 3}
+  - {fileID: 8300000, guid: f33b5b829a9f143ee81ceb14a0afbe27, type: 3}
   _startTimes:
   - 0
   - 60
@@ -1980,8 +1980,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Run.Audio.AudioManager
   _musicSource: {fileID: 1583463264}
   _sfxSource: {fileID: 1583463265}
-  _backgroundMusic: {fileID: 8300000, guid: 21ef56fca0a374d8f8d7d90a7700b1cd, type: 3}
-  _mainMenuMusic: {fileID: 0}
+  _backgroundMusic: {fileID: 0}
+  _mainMenuMusic: {fileID: 8300000, guid: 2ad91e46ca8af49f4944fdda2abf0df9, type: 3}
   _mainMenuSceneName: MainMenu
   _jumpClip: {fileID: 8300000, guid: c42b4b420193c42849df348a24e4b789, type: 3}
   _coinClip: {fileID: 8300000, guid: 740be3e5f2f5647639516efd8f136a50, type: 3}
