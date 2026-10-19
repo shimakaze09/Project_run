@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Run.Player;
 using Run.Core;
 
@@ -19,10 +20,14 @@ namespace Run.Audio
 
         [Header("Clips")]
         [SerializeField] private AudioClip _backgroundMusic;
+        [SerializeField] private AudioClip _mainMenuMusic;
+        [SerializeField] private string _mainMenuSceneName = "MainMenu";
         [SerializeField] private AudioClip _jumpClip;
         [SerializeField] private AudioClip _coinClip;
         [SerializeField] private AudioClip _damageClip;
         [SerializeField] private AudioClip _powerUpClip;
+
+        private PlayerController _player;
 
         private void Awake()
         {
@@ -41,31 +46,72 @@ namespace Run.Audio
         private void Start()
         {
             ApplyMusicVolume();
+            HandleScene(SceneManager.GetActiveScene());
 
-            if (_musicSource != null && _backgroundMusic != null)
-            {
-                _musicSource.clip = _backgroundMusic;
-                _musicSource.loop = true;
-                _musicSource.Play();
-            }
 
-            var player = FindFirstObjectByType<PlayerController>();
-            if (player != null)
-            {
-                player.Jumped += PlayJump;
-            }
-}
+        }
 
         private void OnEnable()
         {
             PowerUpEvents.OnPowerUpActivated += OnPowerUpActivated;
             VolumePreferences.Changed += ApplyMusicVolume;
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         private void OnDisable()
         {
             PowerUpEvents.OnPowerUpActivated -= OnPowerUpActivated;
             VolumePreferences.Changed -= ApplyMusicVolume;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            UnhookPlayer();
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => HandleScene(scene);
+
+        private void HandleScene(Scene scene)
+        {
+            bool isMenu = scene.name == _mainMenuSceneName;
+            PlayMusic(isMenu ? _mainMenuMusic : _backgroundMusic);
+        }
+
+        public void PlayMusic(AudioClip clip)
+        {
+            if (_musicSource == null) return;
+
+            if (clip == null)
+            {
+                _musicSource.Stop();
+                return;
+            }
+
+            if (_musicSource.clip == clip && _musicSource.isPlaying) return;
+
+            _musicSource.clip = clip;
+            _musicSource.loop = true;
+            _musicSource.Play();
+
+
+        }
+
+        private void HookPlayer()
+        {
+            UnhookPlayer();
+            _player = FindFirstObjectByType<PlayerController>();
+            if (_player != null)
+            {
+                _player.Jumped += PlayJump;
+            }
+        }
+
+        private void UnhookPlayer()
+        {
+            if (_player != null)
+            {
+                _player.Jumped -= PlayJump;
+            }
+
+            _player = null;
+
         }
 
         // SFX volume is baked into each PlayOneShot call instead (see PlaySfx), since
