@@ -21,6 +21,7 @@ namespace Run.Audio
         private AudioSource[] _sources;
         private int _currentVersion;
         private float _timeSurvived;
+        private bool _stopped;
 
         private void Awake()
         {
@@ -48,12 +49,42 @@ namespace Run.Audio
                     source.PlayScheduled(startAt);
                 }
             }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.StateChanged += OnStateChanged;
+            }
         }
+
+       public void StopMusic()
+       {
+        _stopped = true;
+       }
+
+       private void OnDestroy()
+       {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.StateChanged -= OnStateChanged;
+
+        }
+       }
+
+       private void OnStateChanged(GameState state)
+       {
+        if (state == GameState.GameOver)
+        {
+            StopMusic();
+        }
+       }
 
         private void Update()
         {
-            // Time.deltaTime is 0 while paused, so pausing stops the timer too.
-            _timeSurvived += Time.deltaTime;
+            
+            if (GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
+            {
+                _timeSurvived += Time.deltaTime;
+            }
 
             // Step up to the next version once its start time is reached.
             while (_currentVersion + 1 < _startTimes.Length &&
@@ -67,7 +98,7 @@ namespace Run.Audio
             float fadeStep = Time.unscaledDeltaTime / Mathf.Max(_fadeDuration, 0.01f);
             for (int i = 0; i < _sources.Length; i++)
             {
-                float target = (i == _currentVersion) ? VolumePreferences.MusicVolume : 0f;
+                float target = (i == _currentVersion && !_stopped) ? VolumePreferences.MusicVolume : 0f;
                 _sources[i].volume = Mathf.MoveTowards(_sources[i].volume, target, fadeStep);
             }
         }

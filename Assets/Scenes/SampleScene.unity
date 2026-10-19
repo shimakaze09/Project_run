@@ -1686,8 +1686,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: f33b5b829a9f143ee81ceb14a0afbe27, type: 3}
   _startTimes:
   - 0
+  - 30
   - 60
-  - 120
   _fadeDuration: 3
 --- !u!4 &1287224994
 Transform:
