@@ -84,8 +84,23 @@ namespace Run.Player
         private bool _shieldActive;
         private bool _speedBoostActive;
 
-        /// <summary>Current forward run speed (grows over the session up to the max; boosted while Speed Boost is active).</summary>
-        public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f);
+        // Environment-mode trap effects (Mud/Tar - see TrapEffectZone), as an expiry timestamp
+        // rather than "while overlapping": the puddles are crossed in a fraction of a second, so
+        // the effect needs to outlast the touch itself to be noticeable (and for Tar, to actually
+        // cover a jump taken just after leaving).
+        private float _slowUntil;
+        private float _heavyUntil;
+        private const float SlowSpeedMultiplier = 0.35f;
+        private const float HeavyGravityMultiplier = 2.4f;
+
+        // Who presses jump during a run. Starting the run always stays with the human
+        // (RunInput), so the Ready screen works the same in every mode.
+        private IRunnerInput _input = HumanRunnerInput.Instance;
+
+        /// <summary>Current forward run speed (grows over the session up to the max; boosted while
+        /// Speed Boost is active, cut for a moment after touching a Mud trap).</summary>
+        public float RunSpeed => _baseRunSpeed * (_speedBoostActive ? _speedBoostMultiplier : 1f)
+            * (Time.time < _slowUntil ? SlowSpeedMultiplier : 1f);
 
         /// <summary>Peak reachable jump height, in world units.</summary>
         public float MaxJumpHeight => _jumpHeight;
@@ -93,8 +108,69 @@ namespace Run.Player
         /// <summary>Approximate horizontal distance clearable in a single full jump.</summary>
         public float MaxJumpSpan { get; private set; }
         public bool IsGrounded => _isGrounded;
+        public bool IsDead => _isDead;
+
+        /// <summary>True while a ground jump would be accepted (on the ground, or inside coyote time).</summary>
+        public bool CanJump => _coyoteCounter > 0f;
+
+        /// <summary>Horizontal speed applied on the last physics step, including any catch-up bonus.</summary>
+        public float ForwardSpeed { get; private set; }
+
+        // The numbers behind the jump arc, published so the computer runner can simulate
+        // exactly the same physics this controller applies in FixedUpdate.
+        // _gravity itself stays the base value - only this property reflects a recent Tar trap -
+        // so RecomputeJumpSpan's level-generation numbers never pick up a transient trap effect.
+        public float Gravity => _gravity * (Time.time < _heavyUntil ? HeavyGravityMultiplier : 1f);
+        public float JumpVelocity => _jumpVelocity;
+        public float FallGravityMultiplier => _fallGravityMultiplier;
+        public float LowJumpMultiplier => _lowJumpMultiplier;
+        public float CoyoteTime => _coyoteTime;
+        public float TimeToApex => _timeToApex;
+        public float CatchUpGain => _catchUpGain;
+        public float MaxCatchUpSpeed => _maxCatchUpSpeed;
+        public float CatchUpDeadzone => _catchUpDeadzone;
+
+        /// <summary>How far the runner trails the scroll line (negative when ahead); drives the catch-up sprint.</summary>
+        public float ScrollLag => WorldScroller.Instance != null
+            ? WorldScroller.Instance.ScrollX - _body.position.x
+            : 0f;
+
+        /// <summary>World Y below which a fall is fatal (see <see cref="CheckDeathBounds"/>).</summary>
+        public float FallDeathY => _camera != null
+            ? _camera.transform.position.y - _camera.orthographicSize - _killMarginBelow
+            : float.NegativeInfinity;
+
         public event System.Action Jumped;
         public event System.Action Landed;
+
+        /// <summary>Hands jump control to another source (e.g. the computer runner); null restores the human.</summary>
+        public void SetInputSource(IRunnerInput source)
+        {
+            _input = source ?? HumanRunnerInput.Instance;
+        }
+
+        /// <summary>Called repeatedly by a Mud trap while the runner stands in it; extends the
+        /// slow rather than stacking. Also refreshes <see cref="MaxJumpSpan"/>, which the level
+        /// generator reads live to pick chunks.</summary>
+        public void ApplySlow(float duration)
+        {
+            _slowUntil = Mathf.Max(_slowUntil, Time.time + duration);
+            RecomputeJumpSpan();
+        }
+
+        /// <summary>Called repeatedly by a Tar trap while the runner stands in it; extends the
+        /// heavy gravity rather than stacking.</summary>
+        public void ApplyHeavy(float duration) => _heavyUntil = Mathf.Max(_heavyUntil, Time.time + duration);
+
+        /// <summary>
+        /// Pushes the current effective gravity onto the Rigidbody2D - called every
+        /// <see cref="FixedUpdate"/> so a Tar effect decays back to normal the instant its timer
+        /// lapses, with no separate "Tar ended" event needed.
+        /// </summary>
+        private void RefreshGravityScale()
+        {
+            _body.gravityScale = Gravity / Mathf.Abs(Physics2D.gravity.y);
+        }
 
         private void Awake()
         {
@@ -114,7 +190,7 @@ namespace Run.Player
             _gravity = (2f * _jumpHeight) / (_timeToApex * _timeToApex);
             _jumpVelocity = _gravity * _timeToApex;
 
-            _body.gravityScale = _gravity / Mathf.Abs(Physics2D.gravity.y);
+            RefreshGravityScale();
             _body.freezeRotation = true;
             _body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             _body.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -164,6 +240,12 @@ namespace Run.Player
         {
             if (state == GameState.Playing)
             {
+                // A fresh run should never inherit a Mud/Tar debuff left over from the last one;
+                // cleared before ApplyDifficulty so its RecomputeJumpSpan isn't tainted by it.
+                _slowUntil = 0f;
+                _heavyUntil = 0f;
+                RefreshGravityScale();
+
                 ApplyDifficulty();
             }
         }
@@ -209,6 +291,9 @@ namespace Run.Player
 
             UpdateGrounded();
 
+            // While waiting to start, the first *fresh* press begins the run instead of
+            // jumping — and we require a release first so a click carried over from
+            // entering play (or the last run) can't auto-start it.
             bool confirmPressed = RunInput.ConfirmPressed();
 
             if (game != null && game.State == GameState.Ready)
@@ -217,7 +302,7 @@ namespace Run.Player
                 {
                     _startArmed = true;
                 }
-                if (_startArmed && confirmPressed)
+                if (_startArmed && RunInput.ConfirmPressed())
                 {
                     game.BeginRun();
                 }
@@ -229,7 +314,7 @@ namespace Run.Player
                 return;
             }
 
-            _bufferCounter = confirmPressed ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
+            _bufferCounter = _input.JumpPressed() ? _jumpBufferTime : _bufferCounter - Time.deltaTime;
             if (_bufferCounter > 0f)
             {
                 if (_coyoteCounter > 0f)
@@ -251,6 +336,10 @@ namespace Run.Player
             var game = GameManager.Instance;
             bool playing = game != null && game.State == GameState.Playing;
 
+            RefreshGravityScale();
+
+            // Difficulty ramp: gently raise the run speed, then refresh jump reach so the
+            // generator's clamps stay in sync with how far the player can actually jump.
             if (playing && _effectiveMaxRunSpeed > _baseRunSpeed)
             {
                 _baseRunSpeed = Mathf.Min(_effectiveMaxRunSpeed, _baseRunSpeed + _effectiveRunSpeedGain * Time.fixedDeltaTime);
@@ -270,11 +359,12 @@ namespace Run.Player
             {
                 velocityY += Physics2D.gravity.y * _body.gravityScale * (_fallGravityMultiplier - 1f) * Time.fixedDeltaTime;
             }
-            else if (velocityY > 0f && !RunInput.JumpHeld())
+            else if (velocityY > 0f && !_input.JumpHeld())
             {
                 velocityY += Physics2D.gravity.y * _body.gravityScale * (_lowJumpMultiplier - 1f) * Time.fixedDeltaTime;
             }
 
+            ForwardSpeed = velocityX;
             _body.linearVelocity = new Vector2(velocityX, velocityY);
         }
 
@@ -303,12 +393,40 @@ namespace Run.Player
             return Mathf.Min(behind * _catchUpGain, _maxCatchUpSpeed);
         }
 
+        /// <summary>True if the feet are on ground right now (a fresh physics check with no side effects).</summary>
+        public bool TouchingGround()
+        {
+            Bounds bounds = _collider.bounds;
+            Vector2 feet = new Vector2(bounds.center.x, bounds.min.y - _groundCheckOffset);
+            return Physics2D.OverlapBox(feet, _groundCheckSize, 0f, _groundLayers) != null;
+        }
+
+        /// <summary>
+        /// Jumps right now if a ground jump is allowed, and reports whether it happened. Lets a
+        /// computer-controlled source act on the exact physics step it planned for, instead of
+        /// waiting for the next rendered frame the way button presses do.
+        /// </summary>
+        public bool RequestJump()
+        {
+            var game = GameManager.Instance;
+            if (_isDead || game == null || game.State != GameState.Playing)
+            {
+                return false;
+            }
+            if (_coyoteCounter <= 0f && !TouchingGround())
+            {
+                return false;
+            }
+
+            Jump();
+            return true;
+        }
+
+        /// <summary>Refreshes the grounded flag and coyote timer.</summary>
         private void UpdateGrounded()
         {
             bool wasGrounded = _isGrounded;
-            Bounds bounds = _collider.bounds;
-            Vector2 feet = new Vector2(bounds.center.x, bounds.min.y - _groundCheckOffset);
-            _isGrounded = Physics2D.OverlapBox(feet, _groundCheckSize, 0f, _groundLayers) != null;
+            _isGrounded = TouchingGround();
             if (!wasGrounded && _isGrounded && _body.linearVelocity.y <= 0f &&
                 GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
                 Landed?.Invoke();

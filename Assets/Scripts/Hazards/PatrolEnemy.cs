@@ -42,6 +42,16 @@ namespace Run.Hazards
             _configured = true;
         }
 
+        /// <summary>A snapshot of this enemy's back-and-forth movement, for predicting where it will be.</summary>
+        public PatrolMotion Motion => new PatrolMotion
+        {
+            X = transform.position.x,
+            MinX = _minX,
+            MaxX = _maxX,
+            Speed = _configured ? _speed : 0f,
+            Direction = _direction
+        };
+
         /// <summary>Keeps the cached patrol bounds aligned after a floating-origin shift.</summary>
         public void OnWorldShift(float dx)
         {
@@ -85,6 +95,36 @@ namespace Run.Hazards
             }
 
             transform.position = position;
+        }
+    }
+
+    /// <summary>
+    /// The pacing movement of a <see cref="PatrolEnemy"/> as plain numbers, so its future position
+    /// can be predicted without stepping the game (used by the computer runner's jump planner).
+    /// </summary>
+    public struct PatrolMotion
+    {
+        public float X;
+        public float MinX;
+        public float MaxX;
+        public float Speed;
+        public int Direction;
+
+        /// <summary>X after <paramref name="seconds"/> more of pacing, matching <see cref="PatrolEnemy"/>'s Update.</summary>
+        public float PredictX(float seconds)
+        {
+            float span = MaxX - MinX;
+            if (span <= 0f || Speed <= 0f)
+            {
+                return X;
+            }
+
+            // Unfold the back-and-forth into one loop of length 2·span: the first half walks
+            // right from MinX, the second half walks back left from MaxX.
+            float along = Mathf.Clamp(X, MinX, MaxX) - MinX;
+            float start = Direction > 0 ? along : 2f * span - along;
+            float travelled = Mathf.Repeat(start + Speed * seconds, 2f * span);
+            return travelled <= span ? MinX + travelled : MaxX - (travelled - span);
         }
     }
 }

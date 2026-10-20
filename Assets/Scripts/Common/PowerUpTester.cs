@@ -6,27 +6,24 @@ namespace Run.Common
 {
     public class PowerUpTester : MonoBehaviour
     {
+        // Independent of any pickup's own configured duration - there's no single "canonical"
+        // value to match, since level designers can set a different duration per pickup instance.
+        private const float ShieldTestDuration = 5f;
+        private const float SpeedBoostTestDuration = 8f;
+
         private void Update()
         {
-            // Ensure a keyboard is connected
             if (Keyboard.current == null) return;
 
-            // Press '1' for a 5-second Shield
             if (Keyboard.current.digit1Key.wasPressedThisFrame)
             {
-                PowerUpEvents.TriggerActivated(PowerUpType.Shield, 5.0f);
+                PowerUpEvents.TriggerActivated(PowerUpType.Shield, ShieldTestDuration);
             }
 
-            // Press '2' for an 8-second Speed Boost
             if (Keyboard.current.digit2Key.wasPressedThisFrame)
             {
-                PowerUpEvents.TriggerActivated(PowerUpType.SpeedBoost, 8.0f);
+                PowerUpEvents.TriggerActivated(PowerUpType.SpeedBoost, SpeedBoostTestDuration);
             }
-            if (Keyboard.current.digit1Key.wasPressedThisFrame)
-                {
-                    Debug.Log("Tester: Key 1 pressed, firing event!");
-                    PowerUpEvents.TriggerActivated(PowerUpType.Shield, 5.0f);
-                }
         }
     }
 }

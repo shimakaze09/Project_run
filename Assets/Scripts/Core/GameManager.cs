@@ -60,6 +60,10 @@ namespace Run.Core
         public event Action<int> ScoreChanged;
 
         public GameState State { get; private set; } = GameState.Ready;
+
+        /// <summary>The <see cref="GameMode"/> this run started in; fixed until the next restart.</summary>
+        public GameMode RunMode { get; private set; }
+
         public int Score { get; private set; }
         public int BestScore { get; private set; }
         public DeathCause LastDeathCause { get; private set; }
@@ -76,6 +80,17 @@ namespace Run.Core
         public float LastRunProgress => LastRunDistance > 0f ? Mathf.Clamp01(Distance / LastRunDistance) : 0f;
         public int Coins { get; private set; }
         public int RunCoins { get; private set; }
+
+        // Environment mode is scored separately: the computer runs, so the human's runner
+        // records stay untouched, and stopping the runner sooner is better.
+        private const string EnvironmentBestKey = "run.environment.bestStopDistance";
+
+        /// <summary>Shortest distance the environment player has stopped the computer runner at (0 = never).</summary>
+        public int EnvironmentBestStop { get; private set; }
+
+        /// <summary>True when the run that just ended set a new <see cref="EnvironmentBestStop"/>.</summary>
+        public bool IsNewEnvironmentBest { get; private set; }
+
         public event Action<float> DistanceChanged;
         public event Action<int> CoinsChanged;
         private float _gameOverTime;
@@ -90,9 +105,11 @@ namespace Run.Core
             }
 
             Instance = this;
+            RunMode = GameModeSettings.Current;
             BestScore = Mathf.Max(0, PlayerPrefs.GetInt(_bestDistanceScoreKey, 0));
             LastRunDistance = Mathf.Max(0f, PlayerPrefs.GetFloat(LastRunKey, 0f));
             Coins = Mathf.Max(0, PlayerPrefs.GetInt(CoinsKey, 0));
+            EnvironmentBestStop = Mathf.Max(0, PlayerPrefs.GetInt(EnvironmentBestKey, 0));
         }
 
         private void OnDestroy()
@@ -153,13 +170,15 @@ namespace Run.Core
             _runStartX = _distanceSource != null ? _distanceSource.position.x : 0f;
             Distance = 0f;
             RunCoins = 0;
+            RunMode = GameModeSettings.Current;
             SetState(GameState.Playing);
         }
 
         /// <summary>Adds persistent currency without changing the distance score.</summary>
         public void AddCoins(int amount)
         {
-            if (State != GameState.Playing || amount <= 0)
+            // The computer runner's pickups are its own, not the player's wallet.
+            if (State != GameState.Playing || amount <= 0 || RunMode == GameMode.Environment)
             {
                 return;
             }
@@ -181,11 +200,19 @@ namespace Run.Core
             }
 
             RefreshScore();
-            PlayerPrefs.SetFloat(LastRunKey, Distance);
             LastDeathCause = cause;
             _gameOverTime = Time.unscaledTime;
             _restartArmed = false;
 
+            if (RunMode == GameMode.Environment)
+            {
+                RecordEnvironmentResult();
+                PlayerPrefs.Save();
+                SetState(GameState.GameOver);
+                return;
+            }
+
+            PlayerPrefs.SetFloat(LastRunKey, Distance);
             if (Score > BestScore)
             {
                 BestScore = Score;
@@ -195,6 +222,18 @@ namespace Run.Core
 
             PlayerPrefs.Save();
             SetState(GameState.GameOver);
+        }
+
+        private void RecordEnvironmentResult()
+        {
+            // Floor at 1 so a record is never confused with "no record yet" (0).
+            int stop = Mathf.Max(1, Score);
+            IsNewEnvironmentBest = EnvironmentBestStop == 0 || stop < EnvironmentBestStop;
+            if (IsNewEnvironmentBest)
+            {
+                EnvironmentBestStop = stop;
+                PlayerPrefs.SetInt(EnvironmentBestKey, EnvironmentBestStop);
+            }
         }
 
         /// <summary>Shifts the scoring origin so distance is preserved across a floating-origin re-base.</summary>

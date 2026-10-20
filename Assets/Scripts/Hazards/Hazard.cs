@@ -1,4 +1,5 @@
 using UnityEngine;
+using Run.Common;
 using Run.Core;
 using Run.Player;
 
@@ -22,7 +23,6 @@ namespace Run.Hazards
 
         protected virtual void Reset()
         {
-            // Sensible default when the component is added in the editor.
             var collider2d = GetComponent<Collider2D>();
             if (collider2d != null)
             {
@@ -32,7 +32,7 @@ namespace Run.Hazards
 
         protected virtual void OnTriggerEnter2D(Collider2D other)
         {
-            if (!other.CompareTag("Player"))
+            if (!other.CompareTag(Tags.Player))
             {
                 return;
             }
