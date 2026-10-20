@@ -55,11 +55,10 @@ namespace Run.Collectibles
             // ExtraHeart is instantaneous and has no countdown duration
             float activeDuration = (_powerUpType == PowerUpType.ExtraHeart) ? 0f : _duration;
 
-            // Fire the event to notify HUD, PlayerHealth, and PlayerController
+            // Fire the event to notify HUD, PlayerHealth, and PlayerController. AudioManager
+            // already plays _powerUpClip for every type via its own OnPowerUpActivated
+            // subscription, so no separate call to it is needed here.
             PowerUpEvents.TriggerActivated(_powerUpType, activeDuration);
-
-            // Optional audio/particle cue if available
-            Run.Audio.AudioManager.Instance?.PlayPickup();
             Run.Effects.GameFeel.Instance?.Emit(Run.Effects.BurstKind.Spark, transform.position);
 
             // Recycle/disable the pickup

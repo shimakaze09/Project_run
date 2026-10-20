@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Run.Core;
@@ -19,7 +20,6 @@ namespace Run.UI
         private Text _centerLabel;
         private Text _coinsLabel;
         private Text _coinPopup;
-        private Text _powerUpLabel; // Active power-up display
         private CanvasGroup _barGroup;
         private int _displayedCoins;
         private int _displayedBest = -1;
@@ -37,9 +37,13 @@ namespace Run.UI
         private bool EnvironmentMode => _game != null &&
             (_game.State == GameState.Ready ? GameModeSettings.IsEnvironment : _game.RunMode == GameMode.Environment);
 
-        private PowerUpType _activePowerUp = PowerUpType.None;
-        private float _powerUpTimeRemaining;
-        private bool _isPowerUpActive;
+        // One label per displayable type (ExtraHeart is instantaneous - never shown here), so
+        // Shield and Speed Boost can both be on screen with their own independent countdown at
+        // once instead of the second activation silently overwriting the first's display.
+        private static readonly PowerUpType[] DisplayablePowerUps = { PowerUpType.Shield, PowerUpType.SpeedBoost };
+        private readonly Dictionary<PowerUpType, Text> _powerUpLabels = new Dictionary<PowerUpType, Text>();
+        private readonly Dictionary<PowerUpType, float> _powerUpTimeRemaining = new Dictionary<PowerUpType, float>();
+        private readonly List<PowerUpType> _tickScratch = new List<PowerUpType>(); // reused to avoid a per-frame alloc
 
         private void Awake()
         {
@@ -156,31 +160,32 @@ namespace Run.UI
 
         private void OnPowerUpActivated(PowerUpType type, float duration)
         {
-
-            if (type == PowerUpType.ExtraHeart || duration <= 0f)
+            if (duration <= 0f || !_powerUpLabels.TryGetValue(type, out var label))
             {
-                return; // Ignore ExtraHeart and non-positive durations
+                return; // ExtraHeart (no label - instantaneous) and non-positive durations
             }
 
-            _activePowerUp = type;
-            _powerUpTimeRemaining = duration;
-            _isPowerUpActive = true;
-
-            if (_powerUpLabel != null)
-            {
-                _powerUpLabel.enabled = true;
-                _powerUpLabel.text = $"{_activePowerUp.ToString().ToUpper()}  {_powerUpTimeRemaining:F1}s";
-            }
+            _powerUpTimeRemaining[type] = duration;
+            label.enabled = true;
+            label.text = $"{type.ToString().ToUpper()}  {duration:F1}s";
         }
 
         private void OnPowerUpExpired(PowerUpType type)
         {
-            _isPowerUpActive = false;
-            _activePowerUp = PowerUpType.None;
-
-            if (_powerUpLabel != null)
+            _powerUpTimeRemaining.Remove(type);
+            if (_powerUpLabels.TryGetValue(type, out var label))
             {
-                _powerUpLabel.enabled = false;
+                label.enabled = false;
+            }
+        }
+
+        /// <summary>Clears every power-up display, e.g. when a Ready/Game Over screen appears.</summary>
+        private void ClearAllPowerUps()
+        {
+            _powerUpTimeRemaining.Clear();
+            foreach (var label in _powerUpLabels.Values)
+            {
+                label.enabled = false;
             }
         }
 
@@ -192,20 +197,27 @@ namespace Run.UI
 
         private void TickPowerUp(float deltaTime)
         {
-            if (!_isPowerUpActive) return;
+            if (_powerUpTimeRemaining.Count == 0) return;
 
-            _powerUpTimeRemaining -= deltaTime;
+            // Snapshot the keys first: TriggerExpired below calls back into OnPowerUpExpired,
+            // which removes from this same dictionary mid-loop.
+            _tickScratch.Clear();
+            _tickScratch.AddRange(_powerUpTimeRemaining.Keys);
 
-            if (_powerUpTimeRemaining > 0f)
+            foreach (var type in _tickScratch)
             {
-                if (_powerUpLabel != null)
+                float remaining = _powerUpTimeRemaining[type] - deltaTime;
+                if (remaining <= 0f)
                 {
-                    _powerUpLabel.text = $"{_activePowerUp.ToString().ToUpper()}  {_powerUpTimeRemaining:F1}s";
+                    PowerUpEvents.TriggerExpired(type);
+                    continue;
                 }
-            }
-            else
-            {
-                PowerUpEvents.TriggerExpired(_activePowerUp);
+
+                _powerUpTimeRemaining[type] = remaining;
+                if (_powerUpLabels.TryGetValue(type, out var label))
+                {
+                    label.text = $"{type.ToString().ToUpper()}  {remaining:F1}s";
+                }
             }
         }
 
@@ -245,7 +257,7 @@ namespace Run.UI
                         ? "TAP / SPACE TO START\nYOU ARE THE LEVEL: STOP THE RUNNER"
                         : "TAP / SPACE TO START";
                     _centerLabel.enabled = true;
-                    OnPowerUpExpired(PowerUpType.None);
+                    ClearAllPowerUps();
                     break;
 
                 case GameState.Playing:
@@ -259,7 +271,7 @@ namespace Run.UI
                           "\nTAP / SPACE TO RESTART"
                         : "GAME OVER\nTAP / SPACE TO RESTART";
                     _centerLabel.enabled = true;
-                    OnPowerUpExpired(PowerUpType.None);
+                    ClearAllPowerUps();
                     break;
             }
         }
@@ -316,11 +328,15 @@ namespace Run.UI
                 align: TextAnchor.UpperLeft, size: 26);
             _coinPopup.enabled = false;
 
-            _powerUpLabel = CreateLabel(canvas.transform, "PowerUp Label",
-                anchor: new Vector2(0.5f, 1f), position: new Vector2(0f, -120f),
-                align: TextAnchor.UpperCenter, size: 30);
-            _powerUpLabel.color = new Color(0.98f, 0.82f, 0.28f); // Golden yellow
-            _powerUpLabel.enabled = false;
+            for (int i = 0; i < DisplayablePowerUps.Length; i++)
+            {
+                var label = CreateLabel(canvas.transform, DisplayablePowerUps[i] + " Label",
+                    anchor: new Vector2(0.5f, 1f), position: new Vector2(0f, -120f - i * 32f),
+                    align: TextAnchor.UpperCenter, size: 30);
+                label.color = new Color(0.98f, 0.82f, 0.28f); // Golden yellow
+                label.enabled = false;
+                _powerUpLabels[DisplayablePowerUps[i]] = label;
+            }
 
             var background = new GameObject("Last Run Bar", typeof(Image), typeof(CanvasGroup)).GetComponent<Image>();
             _barGroup = background.GetComponent<CanvasGroup>();

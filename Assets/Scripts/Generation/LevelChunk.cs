@@ -19,6 +19,10 @@ namespace Run.Generation
         private static readonly Color SafeEdgeHC = new Color(0.86f, 0.95f, 1f);
         private static readonly Color HazardHC = new Color(1f, 0.15f, 0.45f);
 
+        // Re-rolled every placement (including a pooled reuse), so a power-up reads as an
+        // occasional find rather than something every carrying chunk guarantees.
+        private const float PowerUpSpawnChance = 0.3f;
+
         [Min(1f)] public float Width = 10f;
         public bool SafeStart;
         [Min(0f)] public float StartWeight = 1f;
@@ -27,6 +31,7 @@ namespace Run.Generation
         [Min(0f)] public float RequiredJumpHeight;
 
         private Coin[] _coins;
+        private PowerUpPickup[] _powerUps;
         private PatrolEnemy[] _enemies;
         private Vector3[] _enemyPositions;
         private readonly List<IChunkAttachment> _attachments = new List<IChunkAttachment>();
@@ -54,6 +59,7 @@ namespace Run.Generation
             if (_coins == null)
             {
                 _coins = GetComponentsInChildren<Coin>(true);
+                _powerUps = GetComponentsInChildren<PowerUpPickup>(true);
                 _enemies = GetComponentsInChildren<PatrolEnemy>(true);
                 _enemyPositions = new Vector3[_enemies.Length];
                 for (int i = 0; i < _enemies.Length; i++)
@@ -66,6 +72,13 @@ namespace Run.Generation
             {
                 coin.gameObject.SetActive(true);
                 coin.Prime();
+            }
+            // No Prime() needed here, unlike Coin: PowerUpPickup re-reads its own world position
+            // fresh in OnEnable (fired by this SetActive), so there's no stale cached state to
+            // reset - just turning it back on is enough to get a correct bob origin.
+            foreach (var powerUp in _powerUps)
+            {
+                powerUp.gameObject.SetActive(Random.value < PowerUpSpawnChance);
             }
             for (int i = 0; i < _enemies.Length; i++)
             {
@@ -83,8 +96,8 @@ namespace Run.Generation
         /// Groups every baked sprite by whether its piece is lethal (has a <see cref="Hazard"/>,
         /// which <see cref="PatrolEnemy"/> also counts as) or standable ground/platform/crate -
         /// the same split <c>VisualArtSetup</c> uses to decide how to paint each piece originally.
-        /// Coins are left alone either way; they're a pickup, not level geometry to tell apart
-        /// from a hazard.
+        /// Coins and power-ups are left alone either way; they're pickups, not level geometry to
+        /// tell apart from a hazard.
         /// </summary>
         private void CacheContrastGroups()
         {
@@ -94,7 +107,8 @@ namespace Run.Generation
             for (int i = 0; i < transform.childCount; i++)
             {
                 var piece = transform.GetChild(i);
-                if (piece.GetComponent<Coin>() != null || piece.GetComponent<SpriteRenderer>() == null)
+                if (piece.GetComponent<Coin>() != null || piece.GetComponent<PowerUpPickup>() != null ||
+                    piece.GetComponent<SpriteRenderer>() == null)
                 {
                     continue;
                 }
