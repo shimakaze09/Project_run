@@ -12,6 +12,7 @@ namespace Run.Collectibles
     public sealed class PowerUpPickup : MonoBehaviour
     {
         [SerializeField] private PowerUpType _powerUpType = PowerUpType.Shield;
+        [Tooltip("Active duration in seconds. Ignored for ExtraHeart.")]
         [SerializeField, Min(0f)] private float _duration = 5f;
         [SerializeField, Min(0f)] private float _bobAmplitude = 0.2f;
         [SerializeField, Min(0f)] private float _bobFrequency = 3f;
@@ -51,8 +52,28 @@ namespace Run.Collectibles
                 return;
             }
 
-            PowerUpEvents.TriggerActivated(_powerUpType, _duration);
+            // ExtraHeart is instantaneous and has no countdown duration
+            float activeDuration = (_powerUpType == PowerUpType.ExtraHeart) ? 0f : _duration;
+
+            // Fire the event to notify HUD, PlayerHealth, and PlayerController
+            PowerUpEvents.TriggerActivated(_powerUpType, activeDuration);
+
+            // Optional audio/particle cue if available
+            Run.Audio.AudioManager.Instance?.PlayPickup();
+            Run.Effects.GameFeel.Instance?.Emit(Run.Effects.BurstKind.Spark, transform.position);
+
+            // Recycle/disable the pickup
             gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Keeps the pickup synchronized when the runner re-bases its floating origin coordinate space.
+        /// </summary>
+        public void OnWorldShift(float dx)
+        {
+            Vector3 pos = transform.position;
+            pos.x += dx;
+            transform.position = pos;
         }
     }
 }

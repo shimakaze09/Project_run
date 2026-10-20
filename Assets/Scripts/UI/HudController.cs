@@ -156,6 +156,12 @@ namespace Run.UI
 
         private void OnPowerUpActivated(PowerUpType type, float duration)
         {
+
+            if (type == PowerUpType.ExtraHeart || duration <= 0f)
+            {
+                return; // Ignore ExtraHeart and non-positive durations
+            }
+
             _activePowerUp = type;
             _powerUpTimeRemaining = duration;
             _isPowerUpActive = true;

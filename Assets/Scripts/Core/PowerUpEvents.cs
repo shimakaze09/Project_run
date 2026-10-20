@@ -9,7 +9,7 @@ namespace Run.Core
         None,
         Shield,
         SpeedBoost,
-        DoubleJump
+        ExtraLife
     }
 
     /// <summary>
