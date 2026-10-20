@@ -240,11 +240,16 @@ namespace Run.Player
         {
             if (state == GameState.Playing)
             {
-                // A fresh run should never inherit a Mud/Tar debuff left over from the last one;
-                // cleared before ApplyDifficulty so its RecomputeJumpSpan isn't tainted by it.
+                // A fresh run should never inherit a Mud/Tar debuff - or a Shield/Speed Boost
+                // that was never consumed or allowed to expire - left over from the last one.
+                // The scene doesn't reload between runs, so nothing else clears these: dying to
+                // a pit or being left behind skips Shield's own consume-on-hit check entirely,
+                // and a death can land mid-boost before its timer runs out.
                 _slowUntil = 0f;
                 _heavyUntil = 0f;
                 RefreshGravityScale();
+                _shieldActive = false;
+                _speedBoostActive = false;
 
                 ApplyDifficulty();
             }
