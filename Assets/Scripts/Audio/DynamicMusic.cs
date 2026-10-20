@@ -25,7 +25,6 @@ namespace Run.Audio
 
         private void Awake()
         {
-            // Create one AudioSource per version.
             _sources = new AudioSource[_versions.Length];
             for (int i = 0; i < _versions.Length; i++)
             {
@@ -56,37 +55,43 @@ namespace Run.Audio
             }
         }
 
-       public void StopMusic()
-       {
-        _stopped = true;
-       }
-
-       private void OnDestroy()
-       {
-        if (GameManager.Instance != null)
+        public void StopMusic()
         {
-            GameManager.Instance.StateChanged -= OnStateChanged;
-
+            _stopped = true;
         }
-       }
 
-       private void OnStateChanged(GameState state)
-       {
-        if (state == GameState.GameOver)
+        private void OnDestroy()
         {
-            StopMusic();
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.StateChanged -= OnStateChanged;
+            }
         }
-       }
+
+        private void OnStateChanged(GameState state)
+        {
+            if (state == GameState.GameOver)
+            {
+                StopMusic();
+            }
+            else if (state == GameState.Playing)
+            {
+                // The scene never reloads between runs, so without this a second run would
+                // start already stopped (silent, from the last Game Over) and stuck on
+                // whichever intensity tier the previous run ended on instead of the calm intro.
+                _stopped = false;
+                _timeSurvived = 0f;
+                _currentVersion = 0;
+            }
+        }
 
         private void Update()
         {
-            
             if (GameManager.Instance != null && GameManager.Instance.State == GameState.Playing)
             {
                 _timeSurvived += Time.deltaTime;
             }
 
-            // Step up to the next version once its start time is reached.
             while (_currentVersion + 1 < _startTimes.Length &&
                    _currentVersion + 1 < _sources.Length &&
                    _timeSurvived >= _startTimes[_currentVersion + 1])

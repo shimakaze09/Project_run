@@ -47,8 +47,6 @@ namespace Run.Audio
         {
             ApplyMusicVolume();
             HandleScene(SceneManager.GetActiveScene());
-
-
         }
 
         private void OnEnable()
@@ -72,6 +70,11 @@ namespace Run.Audio
         {
             bool isMenu = scene.name == _mainMenuSceneName;
             PlayMusic(isMenu ? _mainMenuMusic : _backgroundMusic);
+
+            // The gameplay scene has a fresh Player each time it loads; re-hook so jump sfx
+            // actually plays. Nothing to hook in the menu, so just drop any stale reference.
+            if (isMenu) UnhookPlayer();
+            else HookPlayer();
         }
 
         public void PlayMusic(AudioClip clip)
@@ -89,8 +92,6 @@ namespace Run.Audio
             _musicSource.clip = clip;
             _musicSource.loop = true;
             _musicSource.Play();
-
-
         }
 
         private void HookPlayer()
@@ -111,7 +112,6 @@ namespace Run.Audio
             }
 
             _player = null;
-
         }
 
         // SFX volume is baked into each PlayOneShot call instead (see PlaySfx), since

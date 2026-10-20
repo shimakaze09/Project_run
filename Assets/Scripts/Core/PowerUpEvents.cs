@@ -9,7 +9,7 @@ namespace Run.Core
         None,
         Shield,
         SpeedBoost,
-        ExtraLife
+        ExtraHeart
     }
 
     /// <summary>
@@ -29,14 +29,15 @@ namespace Run.Core
         public static PowerUpType Active { get; private set; } = PowerUpType.None;
 
         /// <summary>
-        /// Grants <paramref name="type"/> for <paramref name="duration"/> seconds. Ignored for
-        /// <see cref="PowerUpType.None"/> or a non-positive duration, since either would leave
+        /// Grants <paramref name="type"/> for <paramref name="duration"/> seconds (0 is valid -
+        /// <see cref="PowerUpType.ExtraHeart"/> is instantaneous and has no countdown). Ignored
+        /// for <see cref="PowerUpType.None"/> or a negative duration, since either would leave
         /// subscribers (like the HUD, which uses None to mean nothing is active) in a
         /// contradictory state.
         /// </summary>
         public static void TriggerActivated(PowerUpType type, float duration)
         {
-            if (type == PowerUpType.None || duration <= 0f)
+            if (type == PowerUpType.None || duration < 0f)
             {
                 return;
             }

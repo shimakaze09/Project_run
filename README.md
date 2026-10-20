@@ -46,10 +46,11 @@ You die by touching a hazard, falling into a pit, or being left behind the camer
 ## Menus
 
 - **Main Menu** (`Assets/Scenes/MainMenu.unity`, `UI/MainMenu`): the title screen —
-  **PLAY**, **SETTINGS**, **QUIT**. Play opens a **Choose Mode** panel (Runner / Environment,
-  matching the Ready-screen picker below) before loading `SampleScene`. It lives in its own
-  scene, not an overlay in `SampleScene`, so it never runs alongside — or shows through onto —
-  gameplay.
+  **PLAY**, **TUTORIAL**, **SETTINGS**, **QUIT**. Both Play and Tutorial open the same
+  **Choose Mode** panel (Runner / Environment, matching the Ready-screen picker below) before
+  loading `SampleScene`; Tutorial just also flags the run to show the guide (see below). It
+  lives in its own scene, not an overlay in `SampleScene`, so it never runs alongside — or
+  shows through onto — gameplay.
 - **Pause** (`UI/PauseMenu`, Escape or the Android back button during a run): **Resume /
   Settings / Restart / Main Menu / Quit**. Main Menu reloads `MainMenu.unity`, resetting
   `Time.timeScale` first since pausing freezes it at 0.
@@ -76,6 +77,22 @@ Twilight Art**, so toggling it takes effect immediately without needing that Edi
 Runner-mode pieces already on screen repaint live; Environment-mode traps pick it up on their
 next placement.
 
+### Tutorial
+
+`UI/TutorialGuide` is a banner near the top of the screen that walks a new player through
+controls and basic mechanics, one step at a time, during a real run - different steps for
+Runner and Environment mode. It only watches existing game events (state changes, jumps,
+coins, power-ups) rather than changing any gameplay code, and is purely visual: no raycast
+target, so it can never swallow the click/tap a step is waiting on.
+
+- `Core/TutorialSettings.Active` is set by the Main Menu's **TUTORIAL** button right before
+  the gameplay scene loads, and deliberately never persisted - it only applies to the run you
+  explicitly asked for, and gets cleared again the moment the Main Menu reopens.
+- `UI/PauseMenu` adds the guide alongside itself only when that flag is set, the same way it
+  adds `SettingsMenu`.
+- Steps move on when the player does what's asked, or after a timeout for steps that are only
+  information; timers use scaled time, so pausing the game pauses the tutorial too.
+
 ## Difficulty
 
 Before starting a run, pick **Easy / Normal / Hard** from the panel on the Ready
@@ -95,20 +112,32 @@ starts the run immediately instead of requiring a separate confirm. See
 
 ## Power-ups
 
-Pickups placed in level chunks (`Collectibles/PowerUpPickup`) grant a timed effect
-on contact, shown on the HUD and cleared automatically on expiry:
+Pickups (`Collectibles/PowerUpPickup`) grant a timed effect on contact, shown on the HUD
+(one label per active type, so Shield and Speed Boost can both be on screen with their own
+countdown at once) and cleared automatically on expiry:
 
 - **Shield**: absorbs the next hazard hit instead of killing the player, then
   breaks (with a spark burst) and expires.
 - **Speed Boost**: multiplies run speed by 1.3× for the pickup's duration.
-- **Double Jump**: grants one extra mid-air jump per landing while active.
+- **Extra Heart**: defined in `PowerUpType` and fires its event correctly, but nothing
+  currently grants the heart on pickup - the gameplay effect isn't wired up yet.
+
+A pickup can sit directly in a scene (two do, near the very start of `SampleScene`, for a
+guaranteed early encounter) or inside a level chunk prefab the same way a `Coin` does, in
+which case `Generation/LevelChunk` only actually activates it **30% of the time** that chunk
+is placed (`PowerUpSpawnChance`) - re-rolled on every placement, including a pooled reuse, so
+it reads as an occasional find rather than something every carrying chunk guarantees. `Flat`
+and `Elevated` currently carry one each (Shield and Speed Boost respectively); adding more to
+other layouts is just dropping another `PowerUpPickup` child in, the same way a coin is added.
 
 Durations and the bob animation are configured per-pickup in the Inspector. A dead player can't
 collect one (physics keeps running after Game Over; only the Pause menu stops time). See
 `Core/PowerUpEvents.cs` and the `OnPowerUpActivated`/`OnPowerUpExpired` handling in
 `Player/PlayerController.cs`. `PowerUpEvents.Active` reports the most recently granted type
 without each listener needing to track it separately; `TriggerActivated` ignores
-`PowerUpType.None` and non-positive durations.
+`PowerUpType.None` and non-positive durations. A fresh run resets `_shieldActive`/
+`_speedBoostActive` on `PlayerController`, since the scene doesn't reload between runs and a
+death can otherwise leave one carried over uninvited into the next attempt.
 
 ## Environment mode
 
@@ -202,6 +231,10 @@ Scripts live under `Assets/Scripts`, namespaced `Run.*`.
 - `UI/HudController`: distance/best labels, unlabeled fading bar, coin count/popup.
 - `UI/MainMenu`, `UI/PauseMenu`, `UI/SettingsMenu`: the title screen, pause overlay, and the
   shared volume/High Contrast panel they both open. See **Menus** above.
+- `UI/TutorialGuide`, `Core/TutorialSettings`: the on-screen step-by-step guide and the
+  session-only flag that turns it on. See **Tutorial** above.
+- `UI/HeartsCounterUI`: a small TextMeshPro label mirroring `PlayerHealth.CurrentHearts`.
+- `Audio/AudioManager`, `Audio/DynamicMusic`: music/SFX playback. See **Music** below.
 - `Core/VolumePreferences`, `Core/AccessibilityPreferences`: small `PlayerPrefs`-backed static
   classes, one per Settings option, each with a `Changed` event so other systems can react
   without knowing where the choice came from.
@@ -327,3 +360,15 @@ every piece in the world — no per-piece setup needed.
 - **Tools > Endless Runner > Verify Camera Shake** simulates damage and explosion
   callbacks in an isolated preview scene, including expiry, threshold, healing,
   pause, cleanup, rebasing and 1,000 repeated events. Stop Play mode before running.
+
+### Music
+
+`Audio/AudioManager` swaps between the main-menu track and the gameplay track on scene load
+and plays one-shot SFX (jump, coin, damage, power-up); `Audio/DynamicMusic` layers three
+same-length, same-tempo versions of the gameplay track (calm → intense) on their own
+`AudioSource`s, scheduled to start in perfect sync, and crossfades between them as survival
+time passes configured thresholds. Both read `Core/VolumePreferences` live, so the volume
+slider affects whichever is actually playing. Since `SampleScene` never reloads between runs,
+`DynamicMusic` resets its survived-time/intensity-tier and un-silences itself the moment a new
+run starts - otherwise a second run would stay silent (left faded out from the last Game Over)
+and start already on the most intense layer instead of the calm intro.

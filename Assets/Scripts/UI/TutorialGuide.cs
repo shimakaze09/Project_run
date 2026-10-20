@@ -206,7 +206,6 @@ namespace Run.UI
             _bodyLabel.text = step.Body;
         }
 
-        // ---- Step lists -------------------------------------------------------------------
 
         private void BuildRunnerSteps(int hearts)
         {
@@ -252,9 +251,8 @@ namespace Run.UI
             _steps.Add(new Step
             {
                 Title = "POWER-UPS",
-                Body = "Power-ups last a few seconds. SHIELD blocks one hit,\n" +
-                       "SPEED BOOST makes you faster, and DOUBLE JUMP lets\n" +
-                       "you jump again in mid-air.",
+                Body = "Power-ups last a few seconds. SHIELD blocks one hit\n" +
+                       "and SPEED BOOST makes you faster. Grab one as you run!",
                 MinSeconds = 4f,
                 MaxSeconds = 16f,
                 OnEnter = () => _powerUpTaken = false,
@@ -340,7 +338,6 @@ namespace Run.UI
             };
         }
 
-        // ---- UI ---------------------------------------------------------------------------
 
         private void BuildCanvas()
         {
